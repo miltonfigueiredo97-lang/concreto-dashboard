@@ -605,9 +605,9 @@ export default function Home() {
               <div className={s.launchBarTitle}>Lançamento de Concretagem</div>
               <div className={s.launchBarSub}>Registre BTs, peças, sobra e perda direto no Sheets</div>
             </div>
-            <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-              <button className={s.btnSecondary} onClick={()=>setModalPeca(true)}>+ Peça</button>
-              <button className={s.btnSecondary} onClick={()=>setModalConc(true)}>+ Concretagem</button>
+            <div className={s.launchActions}>
+              <button className={s.btnAction} onClick={()=>setModalPeca(true)}>+ Nova Peça</button>
+              <button className={s.btnAction} onClick={()=>setModalConc(true)}>+ Concretagem</button>
               <button className={s.btnLaunch} onClick={()=>setModalBT(true)}>⊕ Lançar BT</button>
             </div>
           </div>

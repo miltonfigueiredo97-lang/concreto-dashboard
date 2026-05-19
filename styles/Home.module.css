@@ -585,3 +585,188 @@
 }
 
 .refreshBtn:hover { background: var(--red); color: white; }
+
+/* ── LAUNCH BAR ── */
+.launchBar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(232,162,37,0.12), rgba(232,162,37,0.04));
+  border: 1px solid rgba(232,162,37,0.4);
+  padding: 24px 32px;
+  margin-bottom: 28px;
+  gap: 24px;
+}
+
+.launchBarTitle {
+  font-family: var(--cond);
+  font-weight: 900;
+  font-size: 22px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.launchBarSub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 6px;
+  letter-spacing: 1px;
+}
+
+.launchActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btnLaunch {
+  font-family: var(--cond);
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 18px 44px;
+  background: var(--accent);
+  color: #0e0f11;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btnLaunch:hover { background: var(--accent2); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(232,162,37,0.3); }
+
+.btnAction {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 16px 28px;
+  background: transparent;
+  color: var(--text2);
+  border: 1px solid var(--border2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btnAction:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── STEPS ── */
+.steps {
+  display: flex;
+  gap: 0;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 20px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  opacity: 0.4;
+}
+
+.stepActive { opacity: 1; }
+.stepDone   { opacity: 0.7; }
+
+.stepNum {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+
+.stepActive .stepNum {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.stepDone .stepNum {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(62,207,122,0.1);
+}
+
+.stepLabel {
+  font-family: var(--cond);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+.stepActive .stepLabel { color: var(--accent); font-weight: 700; }
+
+/* ── BT RESUMO ── */
+.btResumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+}
+
+/* ── LINHA DE PEÇA ── */
+.pecaLinha {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+
+/* ── ALERT RED ── */
+.alertRed {
+  padding: 10px 14px;
+  border-left: 3px solid var(--red);
+  background: rgba(232,90,79,0.08);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--red);
+}
+
+/* ── INFO BOX ── */
+.infoBox {
+  background: rgba(74,158,255,0.07);
+  border: 1px solid rgba(74,158,255,0.25);
+  padding: 14px 16px;
+  margin-bottom: 24px;
+}
+
+/* ── KPI ORANGE ── */
+.kpiOrange::before { background: var(--accent); }
+
+/* ── MODAL WIDE ── */
+.modalWide {
+  width: 700px;
+  max-width: 96vw;
+}
+
+@media (max-width: 900px) {
+  .launchBar { grid-template-columns: 1fr; }
+  .launchActions { width: 100%; }
+  .btnLaunch, .btnAction { flex: 1; text-align: center; }
+  .pecaLinha { flex-wrap: wrap; }
+  .steps { gap: 4px; }
+  .stepLabel { display: none; }
+}
