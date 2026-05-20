@@ -281,81 +281,129 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
         {indicePerda!==0&&<div style={{fontSize:12,color:'var(--text3)',marginLeft:'auto'}}>* Projeção com perda de {fmt1(indicePerda)}%</div>}
       </div>
 
-      {/* Gráfico de barras por andar */}
-      <div style={{display:'flex',flexDirection:'column',gap:8}}>
-        {dados.map(d=>{
+      {/* Gráfico de barras verticais agrupadas por andar */}
+      {(()=>{
+        const chartDados = dados.map(d=>{
           const pecasAndar = pecas.filter(p=>p.andar===d.andar&&(filtroTipo==='todos'||p.tipo===filtroTipo));
-          const progFilt = pecasAndar.reduce((s,p)=>s+p.volume,0);
-          const concFilt = pecasAndar.reduce((s,p)=>s+Math.min(p.volume,volLancadoPeca(p.id,lancamentos)),0);
-          const faltFilt = Math.max(0, progFilt-concFilt);
-          const pctFilt  = progFilt>0?(concFilt/progFilt)*100:0;
-          const open = aberto===d.andar;
+          const prog = pecasAndar.reduce((s,p)=>s+p.volume,0);
+          const conc = pecasAndar.reduce((s,p)=>s+Math.min(p.volume,volLancadoPeca(p.id,lancamentos)),0);
+          const falt = Math.max(0,prog-conc);
+          return { andar:d.andar, prog, conc, falt };
+        }).filter(d=>d.prog>0);
 
-          return(
-            <div key={d.andar}>
-              {/* Linha do andar */}
-              <div onClick={()=>setAberto(open?null:d.andar)}
-                style={{display:'grid',gridTemplateColumns:'160px 1fr 80px 80px 80px 60px',gap:12,
-                  alignItems:'center',padding:'12px 16px',borderRadius:'var(--radius-sm)',
-                  background:open?'rgba(245,197,24,0.06)':'var(--surface2)',
-                  border:`1px solid ${open?'var(--accent)':'var(--border)'}`,
-                  cursor:'pointer',transition:'all 0.15s'}}>
-                {/* Nome andar */}
-                <span style={{fontSize:13,fontWeight:700,color:open?'var(--accent)':'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.andar}</span>
-                {/* Barra dupla */}
-                <div style={{position:'relative',height:20,background:'var(--surface)',borderRadius:4,overflow:'hidden'}}>
-                  {/* Previsto (fundo) */}
-                  <div style={{position:'absolute',left:0,top:0,height:'100%',width:'100%',background:'rgba(245,197,24,0.15)',borderRadius:4}}/>
-                  {/* Executado */}
-                  <div style={{position:'absolute',left:0,top:0,height:'100%',width:`${Math.min(100,pctFilt)}%`,background:pctFilt>=100?'var(--green)':'var(--accent)',borderRadius:4,transition:'width 0.8s'}}/>
-                </div>
-                {/* Valores */}
-                <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',textAlign:'right'}}>{fmt4(progFilt)}</span>
-                <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--green)',textAlign:'right',fontWeight:700}}>{fmt4(concFilt)}</span>
-                <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--red)',textAlign:'right'}}>{fmt4(faltFilt)}</span>
-                <span style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--accent)',textAlign:'right',fontWeight:700}}>{fmt1(pctFilt)}%</span>
-              </div>
+        const maxVal = Math.max(...chartDados.map(d=>d.prog), 0.01);
+        const chartH = 220;
+        const barW   = 18;
+        const gap    = 8;
+        const groupW = barW*3 + gap*2 + 20;
+        const totalW = chartDados.length * groupW;
+        const padL   = 52;
+        const padB   = 60;
+        const padT   = 24;
+        const svgH   = chartH + padB + padT;
 
-              {/* Expandir peças */}
-              {open&&(
-                <div style={{border:'1px solid rgba(245,197,24,0.3)',borderTop:'none',borderRadius:'0 0 var(--radius-sm) var(--radius-sm)',background:'var(--surface)',marginBottom:4}}>
-                  {/* Cabeçalho */}
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px 80px',gap:12,padding:'8px 16px',borderBottom:'1px solid var(--border)'}}>
-                    {['Peça','Previsto','Exec.','Falt.','%'].map(h=>(
-                      <span key={h} style={{fontSize:10,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1}}>{h}</span>
-                    ))}
-                  </div>
-                  {pecasAndar.length===0
-                    ?<div className={s.empty} style={{padding:'16px'}}>Sem peças com este tipo neste andar</div>
-                    :pecasAndar.map(p=>{
-                      const vc=Math.min(p.volume,volLancadoPeca(p.id,lancamentos));
-                      const pct=pctConcretado(p,lancamentos);
-                      const falt=Math.max(0,p.volume-vc);
-                      return(
-                        <div key={p.id} style={{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px 80px',gap:12,padding:'10px 16px',borderBottom:'1px solid var(--border)',alignItems:'center'}}>
-                          <div>
-                            <div style={{fontSize:13,fontWeight:600}}>{p.nome}</div>
-                            <div style={{fontSize:11,color:'var(--text3)'}}>{p.tipo}</div>
-                          </div>
-                          <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',textAlign:'right'}}>{fmt4(p.volume)}</span>
-                          <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--green)',textAlign:'right'}}>{fmt4(vc)}</span>
-                          <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--red)',textAlign:'right'}}>{fmt4(falt)}</span>
-                          <div style={{textAlign:'right'}}>
-                            <div style={{height:4,background:'var(--surface2)',borderRadius:2,overflow:'hidden',marginBottom:2}}>
-                              <div style={{height:'100%',width:`${Math.min(100,pct)}%`,background:pct>=100?'var(--green)':'var(--accent)'}}/>
-                            </div>
-                            <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',fontWeight:700}}>{fmt1(pct)}%</span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  }
-                </div>
-              )}
+        // Linhas de grade
+        const ticks = 5;
+        const grades = Array.from({length:ticks+1},(_,i)=>i/ticks);
+
+        return(
+          <div style={{overflowX:'auto',marginTop:8}}>
+            <svg width={Math.max(totalW+padL+20, 400)} height={svgH} style={{display:'block'}}>
+              {/* Grades horizontais */}
+              {grades.map((g,i)=>{
+                const y = padT + chartH - g*chartH;
+                const val = (g*maxVal).toFixed(1);
+                return(
+                  <g key={i}>
+                    <line x1={padL} y1={y} x2={padL+totalW+10} y2={y} stroke="var(--border)" strokeWidth={1} strokeDasharray={i===0?"none":"4,4"}/>
+                    <text x={padL-6} y={y+4} textAnchor="end" fontSize={10} fill="var(--text3)" fontFamily="var(--mono)">{val}</text>
+                  </g>
+                );
+              })}
+
+              {/* Eixo Y label */}
+              <text x={10} y={padT+chartH/2} textAnchor="middle" fontSize={10} fill="var(--text3)" fontFamily="var(--mono)"
+                transform={`rotate(-90,10,${padT+chartH/2})`}>m³</text>
+
+              {/* Barras por andar */}
+              {chartDados.map((d,i)=>{
+                const x0 = padL + i*groupW;
+                const hProg = d.prog>0 ? (d.prog/maxVal)*chartH : 0;
+                const hConc = d.conc>0 ? (d.conc/maxVal)*chartH : 0;
+                const hFalt = d.falt>0 ? (d.falt/maxVal)*chartH : 0;
+                const open  = aberto===d.andar;
+
+                return(
+                  <g key={d.andar} onClick={()=>setAberto(open?null:d.andar)} style={{cursor:'pointer'}}>
+                    {/* Barra Previsto */}
+                    <rect x={x0} y={padT+chartH-hProg} width={barW} height={hProg}
+                      fill={open?'rgba(245,197,24,0.9)':'rgba(245,197,24,0.5)'} rx={2}/>
+                    {hProg>16&&<text x={x0+barW/2} y={padT+chartH-hProg-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.prog.toFixed(1)}</text>}
+
+                    {/* Barra Executado */}
+                    <rect x={x0+barW+gap} y={padT+chartH-hConc} width={barW} height={hConc}
+                      fill={open?'rgba(34,197,94,1)':'rgba(34,197,94,0.7)'} rx={2}/>
+                    {hConc>16&&<text x={x0+barW+gap+barW/2} y={padT+chartH-hConc-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.conc.toFixed(1)}</text>}
+
+                    {/* Barra Faltando */}
+                    <rect x={x0+barW*2+gap*2} y={padT+chartH-hFalt} width={barW} height={hFalt}
+                      fill={open?'rgba(239,68,68,1)':'rgba(239,68,68,0.6)'} rx={2}/>
+                    {hFalt>16&&<text x={x0+barW*2+gap*2+barW/2} y={padT+chartH-hFalt-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.falt.toFixed(1)}</text>}
+
+                    {/* Label andar */}
+                    <text x={x0+barW*1.5+gap} y={padT+chartH+14} textAnchor="middle" fontSize={10}
+                      fill={open?'var(--accent)':'var(--text3)'} fontFamily="sans-serif" fontWeight={open?700:400}>
+                      {d.andar.length>10?d.andar.slice(0,9)+'…':d.andar}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Eixo base */}
+              <line x1={padL} y1={padT+chartH} x2={padL+totalW+10} y2={padT+chartH} stroke="var(--border2)" strokeWidth={1.5}/>
+            </svg>
+          </div>
+        );
+      })()}
+
+      {/* Tabela expandida do andar selecionado */}
+      {aberto&&(()=>{
+        const pecasAndar = pecas.filter(p=>p.andar===aberto&&(filtroTipo==='todos'||p.tipo===filtroTipo));
+        return(
+          <div style={{marginTop:12,border:'1px solid rgba(245,197,24,0.3)',borderRadius:'var(--radius-sm)',background:'var(--surface)'}}>
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontWeight:700,fontSize:14,color:'var(--accent)'}}>{aberto}</span>
+              <button onClick={()=>setAberto(null)} style={{background:'none',border:'none',color:'var(--text3)',cursor:'pointer',fontSize:16}}>✕</button>
             </div>
-          );
-        })}
-      </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px 80px',gap:12,padding:'8px 16px',borderBottom:'1px solid var(--border)'}}>
+              {['Peça','Previsto','Exec.','Falt.','%'].map(h=>(
+                <span key={h} style={{fontSize:10,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1}}>{h}</span>
+              ))}
+            </div>
+            {pecasAndar.length===0
+              ?<div className={s.empty} style={{padding:'16px'}}>Sem peças</div>
+              :pecasAndar.map(p=>{
+                const vc=Math.min(p.volume,volLancadoPeca(p.id,lancamentos));
+                const pct=pctConcretado(p,lancamentos);
+                return(
+                  <div key={p.id} style={{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px 80px',gap:12,padding:'10px 16px',borderBottom:'1px solid var(--border)',alignItems:'center'}}>
+                    <div><div style={{fontSize:13,fontWeight:600}}>{p.nome}</div><div style={{fontSize:11,color:'var(--text3)'}}>{p.tipo}</div></div>
+                    <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',textAlign:'right'}}>{fmt4(p.volume)}</span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--green)',textAlign:'right'}}>{fmt4(vc)}</span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--red)',textAlign:'right'}}>{fmt4(Math.max(0,p.volume-vc))}</span>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{height:4,background:'var(--surface2)',borderRadius:2,overflow:'hidden',marginBottom:2}}>
+                        <div style={{height:'100%',width:`${Math.min(100,pct)}%`,background:pct>=100?'var(--green)':'var(--accent)'}}/>
+                      </div>
+                      <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',fontWeight:700}}>{fmt1(pct)}%</span>
+                    </div>
+                  </div>
+                );
+              })
+            }
+          </div>
+        );
+      })()}
     </div>
   );
 }
