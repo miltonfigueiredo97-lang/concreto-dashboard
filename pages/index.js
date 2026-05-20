@@ -768,6 +768,7 @@ export default function Home() {
   const[filtroAndar,setFiltroAndar]=useState('todos');
   const[filtroConc,setFiltroConc]=useState('todas');
   const[viewTipo,setViewTipo]=useState(false);
+  const[filtroTipoOp,setFiltroTipoOp]=useState('todos');
   const[filtroRelConc,setFiltroRelConc]=useState('todas');
   const[filtroRelAndar,setFiltroRelAndar]=useState('todos');
   const[toast,setToast]=useState({msg:'',tipo:'ok'});
@@ -791,6 +792,7 @@ export default function Home() {
   // Peças filtradas para progresso
   const pecasFiltOp = pecas.filter(p=>
     (filtroAndar==='todos'||p.andar===filtroAndar)&&
+    (filtroTipoOp==='todos'||p.tipo===filtroTipoOp)&&
     (filtroConc==='todas'||pecaConc.filter(pc=>pc.concretagemId===filtroConc).map(pc=>pc.pecaId).includes(p.id))
   );
 
@@ -822,6 +824,46 @@ export default function Home() {
       {tab==='operacional'&&(
         <main className={`${s.page} animate-fadein`}>
 
+          {/* Filtros no topo — acima de tudo */}
+          <div className={s.filtrosBar}>
+            <div className={s.filtroGrupo}>
+              <div className={s.filtroLabel}>Andar</div>
+              <div className={s.chips} style={{marginBottom:0}}>
+                {['todos',...andares].map(a=>(
+                  <button key={a} className={`${s.chip} ${filtroAndar===a?s.chipActive:''}`} onClick={()=>setFiltroAndar(a)}>{a==='todos'?'Todos':a}</button>
+                ))}
+              </div>
+            </div>
+            <div className={s.filtroGrupo}>
+              <div className={s.filtroLabel}>Concretagem</div>
+              <div className={s.chips} style={{marginBottom:0}}>
+                {['todas',...[...concretagens].sort((a,b)=>a.numero-b.numero)].map(c=>(
+                  <button key={typeof c==='string'?c:c.id} className={`${s.chip} ${filtroConc===(typeof c==='string'?c:c.id)?s.chipActive:''}`}
+                    onClick={()=>setFiltroConc(typeof c==='string'?c:c.id)}>
+                    {typeof c==='string'?'Todas':`Nº${c.numero}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={s.filtroGrupo}>
+              <div className={s.filtroLabel}>Tipo de Peça</div>
+              <div className={s.chips} style={{marginBottom:0}}>
+                {['todos',...tipos].map(t=>(
+                  <button key={t} className={`${s.chip} ${filtroTipoOp===t?s.chipActive:''}`} onClick={()=>setFiltroTipoOp(t)}>
+                    {t==='todos'?'Todos':t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={s.filtroGrupo}>
+              <div className={s.filtroLabel}>Agrupar progresso por</div>
+              <div className={s.chips} style={{marginBottom:0}}>
+                <button className={`${s.chip} ${!viewTipo?s.chipActive:''}`} onClick={()=>setViewTipo(false)}>Peça</button>
+                <button className={`${s.chip} ${viewTipo?s.chipActive:''}`} onClick={()=>setViewTipo(true)}>Tipo</button>
+              </div>
+            </div>
+          </div>
+
           {/* Barra de ações */}
           <div className={s.launchBar}>
             <div><div className={s.launchBarTitle}>Lançamento de Concretagem</div><div className={s.launchBarSub}>Gerencie peças, configure concretagens e lance BTs</div></div>
@@ -838,36 +880,6 @@ export default function Home() {
             <KPI label="Volume Concretado"    value={fmt2(kpis.concVol)}  unit="m³" sub={`${fmt1(kpis.pctConc)}% concluído`} variant="green"/>
             <KPI label="Volume Faltando"      value={fmt2(kpis.faltVol)}  unit="m³" sub={`${fmt1(100-kpis.pctConc)}% restante`} variant="red"/>
             <KPI label="Índice de Perda"      value={fmt1(kpis.indicePerda)} unit="%" sub={`${fmt2(kpis.totalPerda)} m³ perdido`} variant="orange"/>
-          </div>
-
-          {/* Filtros no topo */}
-          <div className={s.filtrosBar}>
-            <div>
-              <div className={s.filtroLabel}>Andar</div>
-              <div className={s.chips} style={{marginBottom:0}}>
-                {['todos',...andares].map(a=>(
-                  <button key={a} className={`${s.chip} ${filtroAndar===a?s.chipActive:''}`} onClick={()=>setFiltroAndar(a)}>{a==='todos'?'Todos':a}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className={s.filtroLabel}>Concretagem</div>
-              <div className={s.chips} style={{marginBottom:0}}>
-                {['todas',...[...concretagens].sort((a,b)=>a.numero-b.numero)].map(c=>(
-                  <button key={typeof c==='string'?c:c.id} className={`${s.chip} ${filtroConc===(typeof c==='string'?c:c.id)?s.chipActive:''}`}
-                    onClick={()=>setFiltroConc(typeof c==='string'?c:c.id)}>
-                    {typeof c==='string'?'Todas':`Nº${c.numero}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className={s.filtroLabel}>Ver por</div>
-              <div className={s.chips} style={{marginBottom:0}}>
-                <button className={`${s.chip} ${!viewTipo?s.chipActive:''}`} onClick={()=>setViewTipo(false)}>Peça</button>
-                <button className={`${s.chip} ${viewTipo?s.chipActive:''}`} onClick={()=>setViewTipo(true)}>Tipo</button>
-              </div>
-            </div>
           </div>
 
           <div className={s.grid2}>
