@@ -1024,7 +1024,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
 // ════════════════════════════════════════════════
 // FILTRO BAR — Cards com dropdown vertical
 // ════════════════════════════════════════════════
-function FiltroBar({ andares, concretagens, filtroAndar, setFiltroAndar, filtroConc, setFiltroConc }) {
+function FiltroBar({ andares, concretagens, pecaConc, pecas, filtroAndar, setFiltroAndar, filtroConc, setFiltroConc }) {
   const [aberto, setAberto] = useState(null);
 
   const labelAndar = filtroAndar === 'todos' ? 'Todos os Andares' : filtroAndar;
@@ -1032,9 +1032,19 @@ function FiltroBar({ andares, concretagens, filtroAndar, setFiltroAndar, filtroC
   const labelConc = filtroConc === 'todas' ? 'Todas as Concretagens'
     : `Concretagem Nº${concSel?.numero} — ${concSel?.data||''}`;
 
+  // Filtrar concretagens pelo andar selecionado
+  const concDisp = filtroAndar === 'todos' ? concretagens : concretagens.filter(c => {
+    const pecaIds = pecaConc.filter(pc=>pc.concretagemId===c.id).map(pc=>pc.pecaId);
+    return pecas.filter(p=>pecaIds.includes(p.id)).some(p=>p.andar===filtroAndar);
+  });
+
   function toggle(tipo) { setAberto(prev => prev===tipo ? null : tipo); }
-  function selAndar(val) { setFiltroAndar(val); setAberto(null); }
-  function selConc(val)  { setFiltroConc(val);  setAberto(null); }
+  function selAndar(val) {
+    setFiltroAndar(val);
+    setFiltroConc('todas'); // reset concretagem ao mudar andar
+    setAberto(null);
+  }
+  function selConc(val) { setFiltroConc(val); setAberto(null); }
 
   return (
     <div className={s.filtroBar} style={{marginBottom:20}}>
@@ -1068,7 +1078,7 @@ function FiltroBar({ andares, concretagens, filtroAndar, setFiltroAndar, filtroC
         <span className={`${s.filtroChevron} ${aberto==='concretagem'?s.filtroChevronOpen:''}`}>▼</span>
         {aberto==='concretagem'&&(
           <div className={s.filtroDropdown} onClick={e=>e.stopPropagation()}>
-            {['todas',...[...concretagens].sort((a,b)=>a.numero-b.numero)].map(c=>{
+            {['todas',...[...concDisp].sort((a,b)=>a.numero-b.numero)].map(c=>{
               const id=typeof c==='string'?c:c.id;
               const label=typeof c==='string'?'Todas as Concretagens':`Nº${c.numero} — ${c.data}${c.descricao?' | '+c.descricao:''}`;
               return(
@@ -1078,6 +1088,7 @@ function FiltroBar({ andares, concretagens, filtroAndar, setFiltroAndar, filtroC
                 </button>
               );
             })}
+            {concDisp.length===0&&<div style={{padding:'16px',color:'var(--text3)',fontSize:13,textAlign:'center'}}>Nenhuma concretagem para este andar</div>}
           </div>
         )}
       </div>
@@ -1149,16 +1160,7 @@ export default function Home() {
 
         <nav className={s.sidebarNav}>
           <button className={`${s.sidebarItem} ${tab==='operacional'?s.sidebarItemActive:''}`} onClick={()=>setTab('operacional')}>
-            <span className={s.sidebarItemIcon}>⬡</span> Visão Geral
-          </button>
-          <button className={s.sidebarItem} onClick={()=>setModalBT(true)}>
-            <span className={s.sidebarItemIcon}>⊕</span> Lançamento
-          </button>
-          <button className={s.sidebarItem} onClick={()=>setModalPecas(true)}>
-            <span className={s.sidebarItemIcon}>◻</span> Peças
-          </button>
-          <button className={s.sidebarItem} onClick={()=>setModalConc(true)}>
-            <span className={s.sidebarItemIcon}>◈</span> Concretagens
+            <span className={s.sidebarItemIcon}>⬡</span> Operacional
           </button>
           <button className={`${s.sidebarItem} ${tab==='relatorios'?s.sidebarItemActive:''}`} onClick={()=>setTab('relatorios')}>
             <span className={s.sidebarItemIcon}>📊</span> Relatórios
@@ -1178,14 +1180,7 @@ export default function Home() {
 
         {/* HEADER */}
         <header className={s.header}>
-          <div className={s.headerNav}>
-            <button className={`${s.headerTab} ${tab==='operacional'?s.headerTabActive:''}`} onClick={()=>setTab('operacional')}>
-              ⬡ Operacional
-            </button>
-            <button className={`${s.headerTab} ${tab==='relatorios'?s.headerTabActive:''}`} onClick={()=>setTab('relatorios')}>
-              ◈ Relatórios & Índices
-            </button>
-          </div>
+          <div style={{flex:1}}/>
           <div className={s.headerRight}>
             <div className={s.headerClock}><div className={s.liveDot}/>{clock}</div>
             <button className={s.headerBtn} onClick={()=>setModalConfig(true)}>⚙ Configurações</button>
@@ -1201,6 +1196,8 @@ export default function Home() {
             <FiltroBar
               andares={andares}
               concretagens={concretagens}
+              pecaConc={pecaConc}
+              pecas={pecas}
               filtroAndar={filtroAndar}
               setFiltroAndar={setFiltroAndar}
               filtroConc={filtroConc}
