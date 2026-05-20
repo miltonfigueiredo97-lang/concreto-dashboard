@@ -907,3 +907,93 @@
   font-size: 14px !important;
   color: var(--text) !important;
 }
+
+
+/* ── GRID 6 COLUNAS ── */
+.grid6 {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* ── KPI PURPLE ── */
+.kpiPurple::before { background: #a855f7; }
+
+/* ── TD BLUE ── */
+.tdBlue { color: var(--blue) !important; font-family: var(--mono); font-size: 13px !important; }
+
+/* ── KPI VALUE SMALL ── */
+.kpiValueSm { font-size: 28px !important; }
+
+/* ── FILTROS BAR REVISADO ── */
+.filtrosBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: 2px solid var(--border2);
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.filtroGrupo {
+  padding: 14px 20px;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.filtroGrupo:last-child { border-right: none; }
+
+.filtroLabel {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text2);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.chip {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 1px;
+  padding: 7px 16px;
+  border: 1px solid var(--border2);
+  background: none;
+  color: var(--text2);
+  transition: all 0.15s;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+
+.chipActive {
+  border-color: var(--accent);
+  color: var(--accent) !important;
+  background: rgba(232,162,37,0.12);
+  font-weight: 700;
+}
+
+@media (max-width: 1200px) {
+  .grid6 { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .grid6 { grid-template-columns: repeat(2, 1fr); }
+  .filtroGrupo { border-right: none; border-bottom: 1px solid var(--border); width: 100%; }
+}
