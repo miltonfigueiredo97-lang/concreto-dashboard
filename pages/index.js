@@ -1,3 +1,4 @@
+// v1779287372
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -211,9 +212,18 @@ function GraficoBTs({ btsConfig, lancamentos, concretagens }) {
                         <div style={{height:'100%',width:`${Math.min(120,(usado/b.volumePrevisto)*100)}%`,background:acima?'var(--blue)':'var(--green)'}}/>
                       </div>
                     )}
-                    {lancada&&perdaCam!==0&&(
-                      <div style={{fontFamily:'var(--mono)',fontSize:10,color:perdaCam>0?'var(--red)':'var(--blue)',marginTop:5}}>
-                        {perdaCam>0?`▼ ${fmt4(perdaCam)}`:`▲ +${fmt4(Math.abs(perdaCam))}`} m³
+                    {lancada&&(
+                      <div style={{fontFamily:'var(--mono)',fontSize:11,marginTop:5,display:'flex',flexDirection:'column',gap:2}}>
+                        {perdaCam!==0&&<span style={{color:perdaCam>0?'var(--red)':'var(--blue)',fontWeight:700}}>
+                          {perdaCam>0?`▼ ${fmt4(perdaCam)} m³`:`▲ +${fmt4(Math.abs(perdaCam))} m³`}
+                        </span>}
+                        {b.volumePrevisto>0&&<span style={{color:perdaCam>0?'var(--red)':perdaCam<0?'var(--blue)':'var(--green)',fontWeight:700}}>
+                          {perdaCam>0
+                            ? `${fmt1((perdaCam/b.volumePrevisto)*100)}% perda`
+                            : perdaCam<0
+                            ? `${fmt1((Math.abs(perdaCam)/b.volumePrevisto)*100)}% sobra`
+                            : '0% perda'}
+                        </span>}
                       </div>
                     )}
                     {!lancada&&<div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--text3)',marginTop:5}}>pendente</div>}
@@ -767,24 +777,15 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
         {/* Menu nova vs editar */}
         {modoLancamento==='menu'&&step===1&&(
           <div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
-              <div className={s.menuCard} onClick={()=>setModoLancamento('nova')}>
-                <div className={s.menuCardIcon}>+</div>
-                <div className={s.menuCardTitle}>Lançar Nova BT</div>
-                <div className={s.menuCardSub}>Registrar uma BT ainda não lançada</div>
-              </div>
-              <div className={s.menuCard} onClick={()=>setModoLancamento('editar_sel')}>
-                <div className={s.menuCardIcon}>✎</div>
-                <div className={s.menuCardTitle}>Editar BT Lançada</div>
-                <div className={s.menuCardSub}>Corrigir dados de uma BT já registrada</div>
-              </div>
+            <div className={s.infoBox} style={{marginBottom:16}}>
+              Selecione a concretagem e clique em uma BT para lançar.<br/>
+              BTs já lançadas (verde) mostram o botão <strong>✎ Editar BT</strong> quando selecionadas.
             </div>
             <div className={s.btnRow}><button className={s.btnSecondary} onClick={onClose}>Fechar</button></div>
           </div>
         )}
 
-        {/* Seletor para edição */}
-        {modoLancamento==='editar_sel'&&(
+        {false&&(
           <div>
             <div className={s.formGroup} style={{marginBottom:16}}>
               <label className={s.formLabel}>Concretagem</label>
@@ -843,11 +844,21 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                     {btsConc.length===0?<div className={s.empty}>Nenhuma BT configurada. Configure em "Concretagens".</div>
                       :<div style={{display:'flex',flexWrap:'wrap',gap:10}}>
                         {btsConc.map(b=>{const jafoi=lancamentos.some(l=>l.btConfigId===b.id);const sel=b.id===btId;return(
-                          <div key={b.id} onClick={()=>setBtId(b.id)} style={{padding:'14px 18px',border:`2px solid ${sel?'var(--accent)':jafoi?'var(--green)':'var(--border)'}`,background:sel?'rgba(232,162,37,0.1)':jafoi?'rgba(62,207,122,0.05)':'transparent',cursor:'pointer',minWidth:100,transition:'all 0.15s'}}>
-                            <div style={{fontFamily:'var(--mono)',fontSize:20,color:sel?'var(--accent)':jafoi?'var(--green)':'var(--text2)',fontWeight:700}}>BT-{b.numero}</div>
-                            <div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:4}}>{fmt4(b.volumePrevisto)} m³</div>
-                            {b.notaFiscal&&<div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--text3)'}}>NF:{b.notaFiscal}</div>}
-                            {jafoi&&<div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--green)',marginTop:4}}>✓ Lançada</div>}
+                          <div key={b.id} style={{display:'flex',flexDirection:'column',gap:0}}>
+                            <div onClick={()=>setBtId(b.id)} style={{padding:'14px 18px',border:`2px solid ${sel?'var(--accent)':jafoi?'var(--green)':'var(--border)'}`,background:sel?'rgba(232,162,37,0.1)':jafoi?'rgba(62,207,122,0.05)':'transparent',cursor:'pointer',minWidth:110,transition:'all 0.15s'}}>
+                              <div style={{fontFamily:'var(--mono)',fontSize:22,color:sel?'var(--accent)':jafoi?'var(--green)':'var(--text2)',fontWeight:700}}>BT-{b.numero}</div>
+                              <div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--text3)',marginTop:4}}>{fmt4(b.volumePrevisto)} m³</div>
+                              {b.notaFiscal&&<div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)'}}>NF:{b.notaFiscal}</div>}
+                              {jafoi&&<div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--green)',marginTop:4}}>✓ Lançada</div>}
+                            </div>
+                            {jafoi&&sel&&(
+                              <button onClick={e=>{e.stopPropagation();iniciarEdicao();}}
+                                style={{background:'var(--surface2)',border:'1px solid var(--accent)',borderTop:'none',color:'var(--accent)',fontFamily:'var(--cond)',fontWeight:700,fontSize:12,letterSpacing:1,padding:'8px',cursor:'pointer',textTransform:'uppercase',transition:'all 0.15s'}}
+                                onMouseOver={e=>e.target.style.background='rgba(232,162,37,0.15)'}
+                                onMouseOut={e=>e.target.style.background='var(--surface2)'}>
+                                ✎ Editar BT
+                              </button>
+                            )}
                           </div>
                         );})}
                       </div>
@@ -1004,7 +1015,7 @@ export default function Home() {
       {tab==='operacional'&&(
         <main className={`${s.page} animate-fadein`}>
 
-          {/* FILTROS */}
+          {/* FILTROS FIXOS NO TOPO */}
           <div className={s.filtrosBar}>
             <div className={s.filtroGrupo}>
               <div className={s.filtroLabel}>Andar</div>
@@ -1027,7 +1038,7 @@ export default function Home() {
           </div>
 
           {/* BARRA DE AÇÕES */}
-          <div className={s.launchBar}>
+          <div className={s.launchBar} style={{marginTop:20}}>
             <div>
               <div className={s.launchBarTitle}>Lançamento de Concretagem</div>
               <div className={s.launchBarSub}>Gerencie peças, configure concretagens e lance BTs</div>
