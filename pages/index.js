@@ -49,7 +49,7 @@ function Modal({ open, onClose, title, children, wide, extraWide }) {
 }
 
 // ── DATA HOOK ─────────────────────────────────
-function useData() {
+function useData(pausado=false) {
   const [data,setData]=useState({pecas:[],concretagens:[],pecaConc:[],btsConfig:[],lancamentos:[]});
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState(null);
@@ -59,7 +59,11 @@ function useData() {
     catch(e){setError(e.message);}finally{setLoading(false);}
   },[]);
   useEffect(()=>{fetch_();},[fetch_]);
-  useEffect(()=>{const id=setInterval(fetch_,60000);return()=>clearInterval(id);},[fetch_]);
+  useEffect(()=>{
+    if(pausado) return; // não atualiza com modal aberto
+    const id=setInterval(fetch_,60000);
+    return()=>clearInterval(id);
+  },[fetch_,pausado]);
   return{data,loading,error,refresh:fetch_};
 }
 
@@ -758,13 +762,12 @@ function GraficoAndares({ pecas, lancamentos }) {
 // PÁGINA PRINCIPAL
 // ════════════════════════════════════════════════
 export default function Home() {
-  const{data,loading,error,refresh}=useData();
-  const{pecas,concretagens,pecaConc,btsConfig,lancamentos}=data;
+
 
   const[tab,setTab]=useState('operacional');
   const[filtroAndar,setFiltroAndar]=useState('todos');
   const[filtroConc,setFiltroConc]=useState('todas');
-  const[viewTipo,setViewTipo]=useState(false); // progresso por tipo
+  const[viewTipo,setViewTipo]=useState(false);
   const[filtroRelConc,setFiltroRelConc]=useState('todas');
   const[filtroRelAndar,setFiltroRelAndar]=useState('todos');
   const[toast,setToast]=useState({msg:'',tipo:'ok'});
@@ -772,6 +775,10 @@ export default function Home() {
   const[modalConc,setModalConc]=useState(false);
   const[modalBT,setModalBT]=useState(false);
   const[clock,setClock]=useState('');
+
+  const modalAberto = modalPecas||modalConc||modalBT;
+  const{data,loading,error,refresh}=useData(modalAberto);
+  const{pecas,concretagens,pecaConc,btsConfig,lancamentos}=data;
 
   useEffect(()=>{ const t=()=>setClock(new Date().toLocaleTimeString('pt-BR')); t(); const id=setInterval(t,1000); return()=>clearInterval(id); },[]);
   const showToast=(msg,tipo='ok')=>{setToast({msg,tipo});setTimeout(()=>refresh(),2000);};
