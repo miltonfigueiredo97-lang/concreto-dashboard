@@ -989,6 +989,139 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
   );
 }
 
+
+// ════════════════════════════════════════════════
+// FILTRO BAR — Dois botões com dropdown vertical
+// ════════════════════════════════════════════════
+function FiltroBar({ andares, concretagens, filtroAndar, setFiltroAndar, filtroConc, setFiltroConc }) {
+  const [aberto, setAberto] = useState(null); // 'andar' | 'concretagem' | null
+
+  const labelAndar = filtroAndar === 'todos' ? 'Todos os Andares' : filtroAndar;
+  const labelConc  = filtroConc  === 'todas' ? 'Todas as Concretagens'
+    : `Concretagem Nº${concretagens.find(c=>c.id===filtroConc)?.numero||''}`;
+
+  function toggle(tipo) { setAberto(prev => prev===tipo ? null : tipo); }
+  function selAndar(val) { setFiltroAndar(val); setAberto(null); }
+  function selConc(val)  { setFiltroConc(val);  setAberto(null); }
+
+  return (
+    <div style={{
+      position:'sticky', top:68, zIndex:90,
+      background:'var(--surface)', borderBottom:'2px solid var(--border2)',
+      display:'flex', gap:0, boxShadow:'0 4px 16px rgba(0,0,0,0.5)',
+    }}>
+      {/* Botão Andar */}
+      <div style={{position:'relative'}}>
+        <button onClick={()=>toggle('andar')} style={{
+          display:'flex', alignItems:'center', gap:12,
+          padding:'18px 32px', border:'none', background:'transparent',
+          borderRight:'1px solid var(--border)',
+          borderBottom: aberto==='andar' ? '3px solid var(--accent)' : '3px solid transparent',
+          cursor:'pointer', transition:'all 0.15s',
+        }}>
+          <div style={{textAlign:'left'}}>
+            <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>Andar</div>
+            <div style={{fontFamily:'var(--cond)',fontWeight:700,fontSize:18,letterSpacing:1,color: filtroAndar!=='todos'?'var(--accent)':'var(--text)',textTransform:'uppercase'}}>
+              {labelAndar}
+            </div>
+          </div>
+          <span style={{color:aberto==='andar'?'var(--accent)':'var(--text3)',fontSize:16,marginLeft:4}}>{aberto==='andar'?'▲':'▼'}</span>
+        </button>
+        {aberto==='andar'&&(
+          <div style={{
+            position:'absolute', top:'100%', left:0, minWidth:260,
+            background:'var(--surface)', border:'1px solid var(--border2)',
+            boxShadow:'0 8px 32px rgba(0,0,0,0.6)', zIndex:200, maxHeight:400, overflowY:'auto',
+          }}>
+            {['todos',...andares].map(a=>(
+              <button key={a} onClick={()=>selAndar(a)} style={{
+                display:'block', width:'100%', textAlign:'left',
+                padding:'16px 24px', border:'none', borderBottom:'1px solid var(--border)',
+                background: filtroAndar===a ? 'rgba(232,162,37,0.12)' : 'transparent',
+                color: filtroAndar===a ? 'var(--accent)' : 'var(--text)',
+                fontFamily:'var(--cond)', fontWeight: filtroAndar===a ? 700 : 500,
+                fontSize:17, letterSpacing:1, textTransform:'uppercase', cursor:'pointer',
+                transition:'background 0.1s',
+              }}
+              onMouseOver={e=>{ if(filtroAndar!==a) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
+              onMouseOut={e=>{ if(filtroAndar!==a) e.currentTarget.style.background='transparent'; }}>
+                {a==='todos'?'Todos os Andares':a}
+                {filtroAndar===a&&<span style={{float:'right',color:'var(--accent)'}}>✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Botão Concretagem */}
+      <div style={{position:'relative'}}>
+        <button onClick={()=>toggle('concretagem')} style={{
+          display:'flex', alignItems:'center', gap:12,
+          padding:'18px 32px', border:'none', background:'transparent',
+          borderRight:'1px solid var(--border)',
+          borderBottom: aberto==='concretagem' ? '3px solid var(--accent)' : '3px solid transparent',
+          cursor:'pointer', transition:'all 0.15s',
+        }}>
+          <div style={{textAlign:'left'}}>
+            <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>Concretagem</div>
+            <div style={{fontFamily:'var(--cond)',fontWeight:700,fontSize:18,letterSpacing:1,color: filtroConc!=='todas'?'var(--accent)':'var(--text)',textTransform:'uppercase'}}>
+              {labelConc}
+            </div>
+          </div>
+          <span style={{color:aberto==='concretagem'?'var(--accent)':'var(--text3)',fontSize:16,marginLeft:4}}>{aberto==='concretagem'?'▲':'▼'}</span>
+        </button>
+        {aberto==='concretagem'&&(
+          <div style={{
+            position:'absolute', top:'100%', left:0, minWidth:320,
+            background:'var(--surface)', border:'1px solid var(--border2)',
+            boxShadow:'0 8px 32px rgba(0,0,0,0.6)', zIndex:200, maxHeight:400, overflowY:'auto',
+          }}>
+            {['todas',...[...concretagens].sort((a,b)=>a.numero-b.numero)].map(c=>{
+              const id = typeof c==='string' ? c : c.id;
+              const label = typeof c==='string' ? 'Todas as Concretagens' : `Nº${c.numero} — ${c.data}${c.descricao?' | '+c.descricao:''}`;
+              const ativo = filtroConc===id;
+              return(
+                <button key={id} onClick={()=>selConc(id)} style={{
+                  display:'block', width:'100%', textAlign:'left',
+                  padding:'16px 24px', border:'none', borderBottom:'1px solid var(--border)',
+                  background: ativo ? 'rgba(232,162,37,0.12)' : 'transparent',
+                  color: ativo ? 'var(--accent)' : 'var(--text)',
+                  fontFamily:'var(--cond)', fontWeight: ativo ? 700 : 500,
+                  fontSize:17, letterSpacing:1, textTransform:'uppercase', cursor:'pointer',
+                  transition:'background 0.1s',
+                }}
+                onMouseOver={e=>{ if(!ativo) e.currentTarget.style.background='rgba(255,255,255,0.04)'; }}
+                onMouseOut={e=>{ if(!ativo) e.currentTarget.style.background='transparent'; }}>
+                  {label}
+                  {ativo&&<span style={{float:'right',color:'var(--accent)'}}>✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Indicador de filtros ativos */}
+      {(filtroAndar!=='todos'||filtroConc!=='todas')&&(
+        <div style={{display:'flex',alignItems:'center',padding:'0 20px',marginLeft:'auto'}}>
+          <button onClick={()=>{setFiltroAndar('todos');setFiltroConc('todas');setAberto(null);}} style={{
+            fontFamily:'var(--mono)',fontSize:13,color:'var(--text3)',background:'none',
+            border:'1px solid var(--border)',padding:'8px 16px',cursor:'pointer',
+            letterSpacing:1,transition:'all 0.15s',
+          }}
+          onMouseOver={e=>{ e.currentTarget.style.color='var(--red)'; e.currentTarget.style.borderColor='var(--red)'; }}
+          onMouseOut={e=>{ e.currentTarget.style.color='var(--text3)'; e.currentTarget.style.borderColor='var(--border)'; }}>
+            ✕ Limpar filtros
+          </button>
+        </div>
+      )}
+
+      {/* Fechar dropdown ao clicar fora */}
+      {aberto&&<div onClick={()=>setAberto(null)} style={{position:'fixed',inset:0,zIndex:199}}/>}
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════
 // PÁGINA PRINCIPAL
 // ════════════════════════════════════════════════
@@ -1061,26 +1194,14 @@ export default function Home() {
         <main className={`${s.page} animate-fadein`}>
 
           {/* FILTROS FIXOS NO TOPO */}
-          <div className={s.filtrosBar}>
-            <div className={s.filtroGrupo}>
-              <div className={s.filtroLabel}>Andar</div>
-              <div className={s.chips}>
-                {['todos',...andares].map(a=><button key={a} className={`${s.chip} ${filtroAndar===a?s.chipActive:''}`} onClick={()=>setFiltroAndar(a)}>{a==='todos'?'Todos':a}</button>)}
-              </div>
-            </div>
-            <div className={s.filtroGrupo}>
-              <div className={s.filtroLabel}>Concretagem</div>
-              <div className={s.chips}>
-                {['todas',...[...concretagens].sort((a,b)=>a.numero-b.numero)].map(c=><button key={typeof c==='string'?c:c.id} className={`${s.chip} ${filtroConc===(typeof c==='string'?c:c.id)?s.chipActive:''}`} onClick={()=>setFiltroConc(typeof c==='string'?c:c.id)}>{typeof c==='string'?'Todas':`Nº${c.numero}`}</button>)}
-              </div>
-            </div>
-            <div className={s.filtroGrupo}>
-              <div className={s.filtroLabel}>Tipo</div>
-              <div className={s.chips}>
-                {['todos',...tipos].map(t=><button key={t} className={`${s.chip} ${filtroTipoOp===t?s.chipActive:''}`} onClick={()=>setFiltroTipoOp(t)}>{t==='todos'?'Todos':t}</button>)}
-              </div>
-            </div>
-          </div>
+          <FiltroBar
+            andares={andares}
+            concretagens={concretagens}
+            filtroAndar={filtroAndar}
+            setFiltroAndar={setFiltroAndar}
+            filtroConc={filtroConc}
+            setFiltroConc={setFiltroConc}
+          />
 
           {/* BARRA DE AÇÕES */}
           <div className={s.launchBar} style={{marginTop:20}}>
