@@ -526,7 +526,14 @@ function ModalConfig({ open, onClose, pecas, config, onSalvar }) {
         <div className={s.sectionTitle} style={{marginBottom:0,flex:1}}>Ordem dos Andares</div>
         <button onClick={inverter} className={s.btnAction} style={{padding:'6px 14px',fontSize:12}}>⇅ Inverter ordem</button>
       </div>
-      <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:10}}>Arraste para reordenar ou use ▲▼</div>
+      {/* Campo para adicionar novo andar */}
+      <div style={{display:'flex',gap:8,marginBottom:12}}>
+        <input className={s.formInput} placeholder="Adicionar andar (ex: 2º Subsolo, Cobertura...)"
+          value={novoAndar} onChange={e=>setNovoAndar(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&adicionarAndar()} style={{flex:1}}/>
+        <button className={s.btnPrimary} onClick={adicionarAndar} style={{padding:'10px 20px',whiteSpace:'nowrap',fontSize:13}}>+ Adicionar</button>
+      </div>
+      <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:10}}>Arraste para reordenar · ▲▼ para mover · ✕ remove andares sem peças</div>
       <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',marginBottom:16}}>
         {ordem.length===0
           ?<div className={s.empty}>Nenhum andar cadastrado ainda.</div>
@@ -545,6 +552,8 @@ function ModalConfig({ open, onClose, pecas, config, onSalvar }) {
               <span style={{flex:1,fontWeight:600,fontSize:14}}>{a}</span>
               <button onClick={()=>mover(i,-1)} disabled={i===0} style={{background:'none',border:'1px solid var(--border)',borderRadius:4,color:'var(--text2)',padding:'4px 10px',cursor:'pointer',fontSize:12,opacity:i===0?0.3:1}}>▲</button>
               <button onClick={()=>mover(i,1)} disabled={i===ordem.length-1} style={{background:'none',border:'1px solid var(--border)',borderRadius:4,color:'var(--text2)',padding:'4px 10px',cursor:'pointer',fontSize:12,opacity:i===ordem.length-1?0.3:1}}>▼</button>
+              <button onClick={()=>removerAndar(a)} title={andaresDaBase.includes(a)?'Tem peças — exclua as peças primeiro':'Remover andar'}
+                style={{background:'none',border:'1px solid var(--border)',borderRadius:4,color:andaresDaBase.includes(a)?'var(--text3)':'var(--red)',padding:'4px 8px',cursor:'pointer',fontSize:11,opacity:andaresDaBase.includes(a)?0.3:1}}>✕</button>
             </div>
           ))
         }
@@ -1839,7 +1848,7 @@ const PILAR_TIPOS = [
 ];
 
 function EsquemaPilar({ tipo }) {
-  const W=160, H=160;
+  const W=170, H=170;
   if(tipo==='ret') return (
     <svg width={W} height={H} style={{display:'block',margin:'0 auto'}}>
       <rect x={30} y={20} width={100} height={120} fill="none" stroke="var(--accent)" strokeWidth={2}/>
@@ -1860,39 +1869,39 @@ function EsquemaPilar({ tipo }) {
     </svg>
   );
   if(tipo==='L') return (
-    <svg width={W} height={H} style={{display:'block',margin:'0 auto'}}>
+    <svg viewBox="0 0 180 180" width={W} height={H} style={{display:'block',margin:'0 auto'}}>
       {/* Forma L: aba superior esquerda + base */}
       <path d="M15,10 L15,140 L145,140 L145,95 L55,95 L55,10 Z" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
       {/* A = altura total (vertical esquerda) */}
-      <line x1={8} y1={10} x2={8} y2={140} stroke="var(--blue)" strokeWidth={1} strokeDasharray="3,2"/>
-      <text x={4} y={78} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">A</text>
+      <line x1={12} y1={10} x2={12} y2={140} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={22} y={80} textAnchor="middle" fontSize={13} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">A</text>
       {/* B = largura da aba superior */}
-      <line x1={15} y1={5} x2={55} y2={5} stroke="var(--green)" strokeWidth={1} strokeDasharray="3,2"/>
-      <text x={35} y={3} textAnchor="middle" fontSize={12} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">B</text>
+      <line x1={15} y1={8} x2={55} y2={8} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={35} y={20} textAnchor="middle" fontSize={13} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">B</text>
       {/* C = largura total da base */}
-      <line x1={15} y1={148} x2={145} y2={148} stroke="var(--red)" strokeWidth={1} strokeDasharray="3,2"/>
-      <text x={80} y={158} textAnchor="middle" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">C</text>
+      <line x1={15} y1={152} x2={145} y2={152} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={80} y={166} textAnchor="middle" fontSize={13} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">C</text>
       {/* D = altura da base horizontal */}
-      <line x1={150} y1={95} x2={150} y2={140} stroke="var(--purple)" strokeWidth={1} strokeDasharray="3,2"/>
-      <text x={157} y={120} textAnchor="middle" fontSize={12} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">D</text>
+      <line x1={148} y1={95} x2={148} y2={140} stroke="var(--purple)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={162} y={120} textAnchor="middle" fontSize={13} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">D</text>
     </svg>
   );
   if(tipo==='T') return (
-    <svg width={W} height={H} style={{display:'block',margin:'0 auto'}}>
+    <svg viewBox="0 0 180 180" width={W} height={H} style={{display:'block',margin:'0 auto'}}>
       {/* Forma T: aba superior + haste vertical */}
       <path d="M10,10 L150,10 L150,55 L95,55 L95,150 L65,150 L65,55 L10,55 Z" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
       {/* A = largura total do topo */}
-      <line x1={10} y1={4} x2={150} y2={4} stroke="var(--blue)" strokeWidth={1} strokeDasharray="3,2"/>
-      <text x={80} y={2} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">A</text>
-      {/* B = espessura do topo (altura da aba) */}
-      <line x1={155} y1={10} x2={155} y2={55} stroke="var(--green)" strokeWidth={1} strokeDasharray="3,2"/>
-      <text x={158} y={36} textAnchor="start" fontSize={12} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">B</text>
-      {/* C = altura da haste vertical */}
-      <line x1={155} y1={55} x2={155} y2={150} stroke="var(--red)" strokeWidth={1} strokeDasharray="3,2"/>
-      <text x={158} y={108} textAnchor="start" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">C</text>
+      <line x1={10} y1={7} x2={150} y2={7} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={80} y={20} textAnchor="middle" fontSize={13} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">A</text>
+      {/* B = espessura do topo */}
+      <line x1={152} y1={10} x2={152} y2={55} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={163} y={36} textAnchor="start" fontSize={13} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">B</text>
+      {/* C = altura da haste */}
+      <line x1={152} y1={55} x2={152} y2={150} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={163} y={108} textAnchor="start" fontSize={13} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">C</text>
       {/* D = largura da haste */}
-      <line x1={65} y1={155} x2={95} y2={155} stroke="var(--purple)" strokeWidth={1} strokeDasharray="3,2"/>
-      <text x={80} y={162} textAnchor="middle" fontSize={12} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">D</text>
+      <line x1={65} y1={153} x2={95} y2={153} stroke="var(--purple)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={80} y={166} textAnchor="middle" fontSize={13} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">D</text>
     </svg>
   );
   return null;
@@ -1996,19 +2005,14 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
               <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16}}>
                 <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — {PILAR_TIPOS.find(t=>t.id===tipoP)?.label}</div>
                 <EsquemaPilar tipo={tipoP}/>
-                <div style={{marginTop:12,fontSize:11,color:'var(--text3)',fontFamily:'var(--mono)',textAlign:'center'}}>
-                  {tipoP==='ret'&&'Vol = Altura [cm] × A [cm] × B [cm] / 1.000.000'}
-                  {tipoP==='red'&&'Vol = (π × A² / 4) × Altura [cm] / 1.000.000'}
-                  {tipoP==='L'  &&'Vol = [(A×(B-D))+(C×D)] × Altura [cm] / 1.000.000'}
-                  {tipoP==='T'  &&'Vol = [(A×B)+(C×D)] × Altura [cm] / 1.000.000'}
-                </div>
+                
               </div>
 
               {/* Campos */}
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
                 <div className={s.formGroup}><label className={s.formLabel}>Nome do Pilar</label><input className={s.formInput} placeholder="ex: P-01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
-                <div className={s.formGroup}><label className={s.formLabel}>Altura Líquida [cm] <span style={{color:'var(--text3)',fontWeight:400}}>(Pé direito − viga)</span></label><input className={s.formInput} type="number" placeholder="220" value={peDireito} onChange={e=>setPeDireito(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel}>Pé Direito [cm]</label><input className={s.formInput} type="number" placeholder="280" value={peDireito} onChange={e=>setPeDireito(e.target.value)}/></div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                   <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Medida A [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mA} onChange={e=>setMA(e.target.value)}/></div>
                   {(tipoP==='ret'||tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Medida B [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mB} onChange={e=>setMB(e.target.value)}/></div>}
@@ -2041,17 +2045,18 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
               <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16}}>
                 <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — Rampa</div>
-                <svg width={160} height={140} style={{display:'block',margin:'0 auto'}}>
-                  <rect x={20} y={30} width={120} height={80} fill="none" stroke="var(--accent)" strokeWidth={2} rx={4}/>
-                  <line x1={20} y1={115} x2={140} y2={115} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                  <text x={80} y={128} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif">Comprimento</text>
-                  <line x1={148} y1={30} x2={148} y2={110} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                  <text x={156} y={74} textAnchor="middle" fontSize={10} fill="var(--green)" fontFamily="sans-serif" transform="rotate(90,156,74)">Largura</text>
-                  <text x={80} y={74} textAnchor="middle" fontSize={10} fill="var(--red)" fontFamily="sans-serif">Esp. Laje</text>
+                <svg viewBox="0 0 200 160" width={180} height={150} style={{display:'block',margin:'0 auto'}}>
+                  <rect x={20} y={20} width={140} height={100} fill="rgba(59,130,246,0.1)" stroke="var(--accent)" strokeWidth={2} rx={4}/>
+                  {/* Comprimento */}
+                  <line x1={20} y1={130} x2={160} y2={130} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={90} y={145} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
+                  {/* Largura */}
+                  <line x1={168} y1={20} x2={168} y2={120} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={182} y={74} textAnchor="middle" fontSize={12} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,182,74)">Largura</text>
+                  {/* Esp. Laje */}
+                  <text x={90} y={74} textAnchor="middle" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp. Laje</text>
                 </svg>
-                <div style={{marginTop:8,fontSize:11,color:'var(--text3)',fontFamily:'var(--mono)',textAlign:'center'}}>
-                  Vol = Comp [cm] × Larg [cm] × Alt.Laje [cm] / 1.000.000
-                </div>
+
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
@@ -2307,8 +2312,8 @@ export default function Home() {
               {[
                 {label:'Volume Total do Projeto', value:fmt4(kpis.totalVol), unit:'m³', sub:`${pecas.length} peças cadastradas`, icon:'📦', v:''},
                 {label:'Volume Real Concretado',  value:fmt4(kpis.concVol),  unit:'m³', sub:`${fmt1(kpis.pctConc)}% do projeto`,   icon:'✅', v:'green'},
-                {label:'Faltando (Projeto)',      value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs executadas', icon:'📊', v:'blue'},
                 {label:'Faltando (Real)',         value:fmt4(kpis.realFaltando), unit:'m³', sub:'proj. − real concretado', icon:'⚠️', v:'red'},
+                {label:'Faltando (Projeto)',      value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs executadas', icon:'📊', v:'blue'},
                 {label:'Índice de Perda',         value:fmt1(perdaInfo.indice),  unit:'%',  sub:`média por BT · ${fmt4(perdaInfo.perdaTotal)} m³`, icon:'📉', v:'orange'},
               ].map((k,i)=>(
                 <div key={i} className={`${s.kpi} ${k.v==='green'?s.kpiGreen:k.v==='red'?s.kpiRed:k.v==='blue'?s.kpiBlue:k.v==='orange'?s.kpiOrange:''}`}>
@@ -2431,7 +2436,13 @@ export default function Home() {
 
             {(()=>{
               let lans=lancamentos, pcs=pecas, bts=btsConfig;
-              if(filtroRelConc!=='todas'){lans=lans.filter(l=>l.concretagemId===filtroRelConc);bts=bts.filter(b=>b.concretagemId===filtroRelConc);}
+              if(filtroRelConc!=='todas'){
+                lans=lans.filter(l=>l.concretagemId===filtroRelConc);
+                bts=bts.filter(b=>b.concretagemId===filtroRelConc);
+                // Filtrar peças vinculadas a esta concretagem
+                const pecaIdsConc=pecaConc.filter(pc=>pc.concretagemId===filtroRelConc).map(pc=>pc.pecaId);
+                pcs=pcs.filter(p=>pecaIdsConc.includes(p.id));
+              }
               if(filtroRelAndar!=='todos') pcs=pcs.filter(p=>p.andar===filtroRelAndar);
               const pids=new Set(pcs.map(p=>p.id));lans=lans.filter(l=>pids.has(l.pecaId));
               const relProg=pcs.reduce((s,p)=>s+p.volume,0);
