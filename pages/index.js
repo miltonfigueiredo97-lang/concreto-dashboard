@@ -422,15 +422,29 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
     linhas.forEach((linha,i)=>{
       if(i===0&&linha.toLowerCase().includes('nome')) return; // pula cabeçalho
       const cols=linha.split('\t');
-      if(cols.length<4){errs.push(`L${i+1}: faltam colunas`);return;}
-      const [n,t,a,vRaw]=cols.map(c=>c.trim());
-      const v=parseFloat(vRaw.replace(',','.'));
-      if(!n){errs.push(`L${i+1}: nome vazio`);return;}
-      if(isNaN(v)){errs.push(`L${i+1}: volume inválido`);return;}
-      ps.push({nome:n,tipo:t||'Outro',andar:a||'Sem andar',volume:v});
+      const [n,t,a,vRaw]=(cols.map(c=>c.trim()));
+      // Ignora linhas com nome vazio silenciosamente
+      if(!n||n==='') return;
+      // Ignora linha se for cabeçalho
+      if(n.toLowerCase()==='nome') return;
+      const v=parseFloat((vRaw||'').replace(',','.'));
+      if(isNaN(v)||v<=0) return; // ignora linhas sem volume válido
+      ps.push({nome:n,tipo:t||'Viga',andar:a||'Sem andar',volume:v});
     });
-    if(errs.length){setErroImport(errs.join(' | '));setPreviewImport([]);return;}
+    if(ps.length===0){setErroImport('Nenhuma linha válida encontrada. Verifique o formato.');setPreviewImport([]);return;}
     setPreviewImport(ps);
+  }
+
+  function parsearArquivo(file){
+    if(!file) return;
+    setErroImport('');
+    // Suporta TSV, CSV e Excel básico (lê como texto)
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const txt = e.target.result;
+      parsearImport(txt);
+    };
+    reader.readAsText(file, 'UTF-8');
   }
 
   async function salvarImport(){
@@ -488,12 +502,24 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
             <strong>Como usar:</strong> Cole do Excel as colunas: Nome | Tipo | Andar | Volume(m³)<br/>
             Ou baixe o arquivo base abaixo para preencher corretamente.
           </div>
-          <button className={s.btnSecondary} style={{marginBottom:14,width:'100%'}} onClick={gerarExcel}>
-            ⬇ Baixar Arquivo Base (TSV para Excel)
-          </button>
+          {/* Ações de importação */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+            <button className={s.btnSecondary} onClick={gerarExcel} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'12px'}}>
+              ⬇ Baixar Modelo Excel
+            </button>
+            <label style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'12px',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',color:'var(--text2)',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all 0.15s'}}
+              onMouseOver={e=>{e.currentTarget.style.borderColor='var(--accent)';e.currentTarget.style.color='var(--accent)';}}
+              onMouseOut={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text2)';}}>
+              📂 Carregar Arquivo (TSV/CSV)
+              <input type="file" accept=".tsv,.csv,.txt,.xls,.xlsx" style={{display:'none'}} onChange={e=>parsearArquivo(e.target.files[0])}/>
+            </label>
+          </div>
+
+          <div style={{textAlign:'center',color:'var(--text3)',fontSize:12,marginBottom:10}}>— ou cole o conteúdo abaixo —</div>
+
           {erroImport&&<div className={s.alertRed} style={{marginBottom:10}}>{erroImport}</div>}
-          <textarea style={{width:'100%',height:130,background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text)',fontFamily:'var(--mono)',fontSize:13,padding:'12px 16px',outline:'none',resize:'vertical',lineHeight:1.8}}
-            placeholder={'Pilar P-01\tPilar\tTérreo\t1.5\nViga V-01\tViga\tTérreo\t2.8'}
+          <textarea style={{width:'100%',height:130,background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',color:'var(--text)',fontFamily:'var(--mono)',fontSize:13,padding:'12px 16px',outline:'none',resize:'vertical',lineHeight:1.8}}
+            placeholder={'V201\tVIGA\t1º subsolo\t3,17\nV202\tVIGA\t1º subsolo\t1,32'}
             value={textoImport} onChange={e=>{setTextoImport(e.target.value);parsearImport(e.target.value);}}/>
           {previewImport.length>0&&(
             <div style={{marginTop:10,maxHeight:200,overflowY:'auto',border:'1px solid var(--border)'}}>
