@@ -56,7 +56,18 @@
 .progressMetaRed { color:var(--red); }
 
 /* ── FILTROS BAR ── */
-.filtrosBar { display:flex; flex-wrap:nowrap; gap:0; background:var(--surface); border:1px solid var(--border); border-bottom:2px solid var(--border2); margin-bottom:0; overflow-x:auto; position:sticky; top:68px; z-index:90; }
+.filtrosBar {
+  display:flex;
+  flex-wrap:wrap;
+  gap:0;
+  background:var(--surface);
+  border-bottom:2px solid var(--border2);
+  margin-bottom:0;
+  position:sticky;
+  top:68px;
+  z-index:90;
+  box-shadow:0 4px 12px rgba(0,0,0,0.4);
+}
 .filtroGrupo { padding:16px 20px; border-right:1px solid var(--border); flex-shrink:0; }
 .filtroGrupo:last-child { border-right:none; }
 .filtroLabel { font-family:var(--mono); font-size:12px; letter-spacing:1px; color:var(--text2); text-transform:uppercase; margin-bottom:10px; font-weight:700; white-space:nowrap; }
@@ -202,7 +213,7 @@
 }
 
 .filtroGrupo {
-  padding: 18px 24px !important;
+  padding: 14px 20px !important;
 }
 
 /* BT STATUS % perda */
@@ -211,4 +222,54 @@
   font-size: 11px;
   margin-top: 4px;
   font-weight: 700;
+}
+
+
+/* ── CHIPS NO FILTRO FIXO ── */
+.filtrosBar .chips {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.filtrosBar .chip {
+  font-size: 13px !important;
+  padding: 7px 14px !important;
+  flex-shrink: 0;
+}
+
+/* ── LABELS PEQUENOS (dentro de tabelas, sub-info) ── */
+.labelSm {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+  letter-spacing: 1px;
+}
+
+/* ── BT STATUS CARD ── */
+.btCard {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  min-width: 110px;
+}
+
+.btCardNum {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 24px;
+}
+
+.btCardVol {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 3px;
+}
+
+.btCardPerda {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 6px;
 }

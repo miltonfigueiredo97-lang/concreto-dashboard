@@ -777,11 +777,56 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
         {/* Menu nova vs editar */}
         {modoLancamento==='menu'&&step===1&&(
           <div>
-            <div className={s.infoBox} style={{marginBottom:16}}>
-              Selecione a concretagem e clique em uma BT para lançar.<br/>
-              BTs já lançadas (verde) mostram o botão <strong>✎ Editar BT</strong> quando selecionadas.
+            <div className={s.formGroup} style={{marginBottom:20}}>
+              <label className={s.formLabel}>Concretagem</label>
+              <select className={s.formSelect} value={concId} onChange={e=>{setConcId(e.target.value);setBtId('');}}>
+                <option value="">— selecione —</option>
+                {[...concretagens].sort((a,b)=>a.numero-b.numero).map(c=><option key={c.id} value={c.id}>Nº {c.numero} — {c.data}{c.descricao?` | ${c.descricao}`:''}</option>)}
+              </select>
             </div>
-            <div className={s.btnRow}><button className={s.btnSecondary} onClick={onClose}>Fechar</button></div>
+            {concId&&(
+              <div>
+                <label className={s.formLabel} style={{display:'block',marginBottom:12}}>Selecione a BT</label>
+                {btsConc.length===0
+                  ?<div className={s.empty}>Nenhuma BT configurada. Configure em "Concretagens".</div>
+                  :<div style={{display:'flex',flexWrap:'wrap',gap:10,marginBottom:16}}>
+                    {btsConc.map(b=>{
+                      const jafoi=lancamentos.some(l=>l.btConfigId===b.id);
+                      const sel=b.id===btId;
+                      return(
+                        <div key={b.id} style={{display:'flex',flexDirection:'column',gap:0}}>
+                          <div onClick={()=>setBtId(b.id)} style={{padding:'16px 20px',border:`2px solid ${sel?'var(--accent)':jafoi?'var(--green)':'var(--border)'}`,background:sel?'rgba(232,162,37,0.1)':jafoi?'rgba(62,207,122,0.05)':'transparent',cursor:'pointer',minWidth:110,transition:'all 0.15s'}}>
+                            <div style={{fontFamily:'var(--mono)',fontSize:22,color:sel?'var(--accent)':jafoi?'var(--green)':'var(--text2)',fontWeight:700}}>BT-{b.numero}</div>
+                            <div style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--text3)',marginTop:4}}>{fmt4(b.volumePrevisto)} m³</div>
+                            {b.notaFiscal&&<div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)'}}>NF:{b.notaFiscal}</div>}
+                            {jafoi&&<div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--green)',marginTop:4}}>✓ Lançada</div>}
+                          </div>
+                          {jafoi&&sel&&(
+                            <button onClick={e=>{e.stopPropagation();iniciarEdicao();}}
+                              style={{background:'var(--surface2)',border:'2px solid var(--accent)',borderTop:'none',color:'var(--accent)',fontFamily:'var(--cond)',fontWeight:700,fontSize:13,letterSpacing:1,padding:'10px',cursor:'pointer',textTransform:'uppercase',width:'100%'}}>
+                              ✎ Editar BT
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                }
+                {btId&&!lancamentos.some(l=>l.btConfigId===btId)&&(
+                  <div style={{marginTop:4,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+                    <div className={s.formGroup}><label className={s.formLabel}>Hora</label><input className={s.formInput} type="time" value={hora} onChange={e=>setHora(e.target.value)}/></div>
+                    <div className={s.formGroup}><label className={s.formLabel}>Nota Fiscal</label><input className={s.formInput} placeholder="NF" value={nfEdit} onChange={e=>setNfEdit(e.target.value)}/></div>
+                    <div className={s.formGroup}><label className={s.formLabel}>Código BT</label><input className={s.formInput} placeholder="Código" value={codEdit} onChange={e=>setCodEdit(e.target.value)}/></div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className={s.btnRow}>
+              <button className={s.btnSecondary} onClick={onClose}>Cancelar</button>
+              {btId&&!lancamentos.some(l=>l.btConfigId===btId)&&(
+                <button className={s.btnPrimary} onClick={()=>{if(!concId||!btId){setErro('Selecione concretagem e BT');return;}setErro('');setModoLancamento('nova');setStep(2);}}>Próximo →</button>
+              )}
+            </div>
           </div>
         )}
 
