@@ -8,7 +8,7 @@ import {
 } from '../lib/calculos';
 import {
   apiAdicionarPeca, apiAdicionarPecaLote, apiEditarPeca, apiExcluirPeca,
-  apiSalvarConcretagem, apiLancarBT,
+  apiSalvarConcretagem, apiLancarBT, apiExcluirConcretagem,
 } from '../lib/api';
 
 
@@ -434,19 +434,56 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
 // ════════════════════════════════════════════════
 // MODAL: CONFIG DA OBRA
 // ════════════════════════════════════════════════
+
+// ── SELETOR DE ANDAR CENTRALIZADO ─────────────
+function AndarSelect({ value, onChange, config, pecas, style, placeholder }) {
+  const andaresCustm = config?.andaresCustm || [];
+  const andaresDaBase = [...new Set(pecas.map(p=>p.andar))];
+  const ordemConf = config?.ordemAndares || [];
+  const todosAndares = ordenarAndares(
+    [...new Set([...andaresDaBase, ...andaresCustm])],
+    ordemConf
+  );
+  return(
+    <select className={s.formSelect} value={value} onChange={onChange} style={style}>
+      <option value="">{placeholder||'— selecione o andar —'}</option>
+      {todosAndares.map(a=><option key={a} value={a}>{a}</option>)}
+    </select>
+  );
+}
+
 function ModalConfig({ open, onClose, pecas, config, onSalvar }) {
-  const andares = [...new Set(pecas.map(p=>p.andar))];
+  const andaresDaBase = [...new Set(pecas.map(p=>p.andar))];
   const ordemAtual = config.ordemAndares || [];
   const [ordem, setOrdem] = useState([]);
   const [nomeObra, setNomeObra] = useState('');
+  const [novoAndar, setNovoAndar] = useState('');
 
   useEffect(()=>{
     if(open){
-      const ord = ordenarAndares(andares, ordemAtual);
+      // Inclui andares das peças + andares customizados que não têm peças ainda
+      const todosAndares = [...new Set([...andaresDaBase, ...(config.andaresCustm||[])])];
+      const ord = ordenarAndares(todosAndares, ordemAtual);
       setOrdem(ord);
       setNomeObra(config.nomeObra||'');
     }
   },[open]);
+
+  function adicionarAndar(){
+    const a = novoAndar.trim();
+    if(!a||ordem.includes(a)) return;
+    setOrdem(prev=>[...prev, a]);
+    setNovoAndar('');
+  }
+
+  function removerAndar(a){
+    if(andaresDaBase.includes(a)){
+      alert(`O andar "${a}" tem peças cadastradas e não pode ser removido aqui.\nExclua as peças primeiro.`);
+      return;
+    }
+    if(!confirm(`Remover o andar "${a}" da lista?`)) return;
+    setOrdem(prev=>prev.filter(x=>x!==a));
+  }
 
   const [dragIdx, setDragIdx] = useState(null);
 
@@ -473,7 +510,8 @@ function ModalConfig({ open, onClose, pecas, config, onSalvar }) {
   function onDragEnd() { setDragIdx(null); }
 
   function salvar(){
-    onSalvar({...config, nomeObra, ordemAndares:ordem});
+    const andaresCustm = ordem.filter(a=>!andaresDaBase.includes(a));
+    onSalvar({...config, nomeObra, ordemAndares:ordem, andaresCustm});
     onClose();
   }
 
@@ -866,10 +904,10 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
     if(!confirm(`Excluir Concretagem Nº${c.numero}? Isso removerá todas as peças vinculadas e BTs configuradas.`))return;
     setSalvando(true);
     try{
-      const {apiExcluirConcretagem} = await import('../lib/api');
       await apiExcluirConcretagem(c.id);
       onSalvo(`Concretagem Nº${c.numero} excluída.`);
       setConcSel('');
+      onClose();
     }catch(e){setErro('Erro ao excluir: '+e.message);}
     finally{setSalvando(false);}
   }
@@ -1299,7 +1337,12 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                     <div style={{alignSelf:'flex-end',paddingBottom:2}}>{linhas.length>1&&<button className={s.btnDanger} onClick={()=>remLinha(i)}>✕</button>}</div>
                   </div>
                 );})}
-                <button className={s.btnSecondary} style={{marginTop:12}} onClick={addLinha}>+ Adicionar peça</button>
+                <div style={{display:'flex',gap:10,marginTop:12}}>
+                  <button className={s.btnSecondary} onClick={addLinha}>+ Adicionar peça</button>
+                  <button onClick={()=>setLinhas([{pecaId:'',pct:''}])} style={{background:'none',border:'1px solid var(--red)',color:'var(--red)',padding:'8px 14px',borderRadius:'var(--radius-sm)',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                    🗑 Zerar tudo
+                  </button>
+                </div>
                 {totalUsado>volPrevisto&&<div className={s.alertBlue} style={{marginTop:10}}>ℹ Volume acima do previsto — sobra inesperada de {fmt4(totalUsado-volPrevisto)} m³.</div>}
                 <div className={s.btnRow}>
                   <button className={s.btnSecondary} onClick={()=>setStep(1)}>← Voltar</button>
@@ -1818,27 +1861,44 @@ function EsquemaPilar({ tipo }) {
   );
   if(tipo==='L') return (
     <svg width={W} height={H} style={{display:'block',margin:'0 auto'}}>
-      <path d="M20,10 L20,140 L90,140 L90,90 L60,90 L60,10 Z" fill="none" stroke="var(--accent)" strokeWidth={2}/>
-      <text x={40} y={54} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif">A</text>
-      <text x={55} y={120} textAnchor="middle" fontSize={11} fill="var(--green)" fontFamily="sans-serif">B</text>
-      <text x={25} y={120} textAnchor="middle" fontSize={11} fill="var(--red)" fontFamily="sans-serif">C</text>
-      <text x={55} y={82} textAnchor="middle" fontSize={11} fill="var(--purple)" fontFamily="sans-serif">D</text>
+      {/* Forma L: aba superior esquerda + base */}
+      <path d="M15,10 L15,140 L145,140 L145,95 L55,95 L55,10 Z" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+      {/* A = altura total (vertical esquerda) */}
+      <line x1={8} y1={10} x2={8} y2={140} stroke="var(--blue)" strokeWidth={1} strokeDasharray="3,2"/>
+      <text x={4} y={78} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">A</text>
+      {/* B = largura da aba superior */}
+      <line x1={15} y1={5} x2={55} y2={5} stroke="var(--green)" strokeWidth={1} strokeDasharray="3,2"/>
+      <text x={35} y={3} textAnchor="middle" fontSize={12} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">B</text>
+      {/* C = largura total da base */}
+      <line x1={15} y1={148} x2={145} y2={148} stroke="var(--red)" strokeWidth={1} strokeDasharray="3,2"/>
+      <text x={80} y={158} textAnchor="middle" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">C</text>
+      {/* D = altura da base horizontal */}
+      <line x1={150} y1={95} x2={150} y2={140} stroke="var(--purple)" strokeWidth={1} strokeDasharray="3,2"/>
+      <text x={157} y={120} textAnchor="middle" fontSize={12} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">D</text>
     </svg>
   );
   if(tipo==='T') return (
     <svg width={W} height={H} style={{display:'block',margin:'0 auto'}}>
-      <path d="M10,10 L150,10 L150,50 L95,50 L95,150 L65,150 L65,50 L10,50 Z" fill="none" stroke="var(--accent)" strokeWidth={2}/>
-      <text x={80} y={35} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif">A</text>
-      <text x={80} y={30} textAnchor="middle" fontSize={9} fill="var(--text3)" fontFamily="sans-serif" dy={12}> </text>
-      <text x={30} y={35} textAnchor="middle" fontSize={10} fill="var(--green)" fontFamily="sans-serif">B(esp)</text>
-      <text x={80} y={105} textAnchor="middle" fontSize={11} fill="var(--red)" fontFamily="sans-serif">C</text>
-      <text x={100} y={105} textAnchor="middle" fontSize={11} fill="var(--purple)" fontFamily="sans-serif">D</text>
+      {/* Forma T: aba superior + haste vertical */}
+      <path d="M10,10 L150,10 L150,55 L95,55 L95,150 L65,150 L65,55 L10,55 Z" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+      {/* A = largura total do topo */}
+      <line x1={10} y1={4} x2={150} y2={4} stroke="var(--blue)" strokeWidth={1} strokeDasharray="3,2"/>
+      <text x={80} y={2} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">A</text>
+      {/* B = espessura do topo (altura da aba) */}
+      <line x1={155} y1={10} x2={155} y2={55} stroke="var(--green)" strokeWidth={1} strokeDasharray="3,2"/>
+      <text x={158} y={36} textAnchor="start" fontSize={12} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">B</text>
+      {/* C = altura da haste vertical */}
+      <line x1={155} y1={55} x2={155} y2={150} stroke="var(--red)" strokeWidth={1} strokeDasharray="3,2"/>
+      <text x={158} y={108} textAnchor="start" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">C</text>
+      {/* D = largura da haste */}
+      <line x1={65} y1={155} x2={95} y2={155} stroke="var(--purple)" strokeWidth={1} strokeDasharray="3,2"/>
+      <text x={80} y={162} textAnchor="middle" fontSize={12} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">D</text>
     </svg>
   );
   return null;
 }
 
-function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
+function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, config, pecas }) {
   const [tipoPeca, setTipoPeca] = useState(null); // null=menu, 'pilar','escada'
   const [tipoP, setTipoP] = useState('ret');
   // Campos comuns
@@ -1861,8 +1921,8 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
   function calcVolume() {
     if(tipoPeca==='pilar') {
       const pd = n(peDireito) - n(altViga); // altura líquida
-      if(tipoP==='ret') return (pd * n(mA) * n(mB)) / 1000000;
-      if(tipoP==='red') return (((Math.PI * n(mA) * n(mA)) / 4) * pd) / 1000000;
+      if(tipoP==='ret') return (n(peDireito) * n(mA) * n(mB)) / 1000000;
+      if(tipoP==='red') return (((Math.PI * n(mA) * n(mA)) / 4) * n(peDireito)) / 1000000;
       if(tipoP==='L')   return ((n(mA) * (n(mB) - n(mD))) + (n(mC) * n(mD))) * pd / 1000000;
       if(tipoP==='T')   return ((n(mA) * n(mB)) + (n(mC) * n(mD))) * pd / 1000000;
     }
@@ -1899,7 +1959,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
               {[
                 {id:'pilar',  icon:'▭', label:'Pilares',  sub:'Retangular, redondo, L ou T'},
-                {id:'rampa', icon:'▤', label:'Escadas',  sub:'Laje inclinada / degraus'},
+                {id:'rampa', icon:'▤', label:'Rampas',  sub:'Laje inclinada / degraus'},
               ].map(t=>(
                 <div key={t.id} onClick={()=>setTipoPeca(t.id)} className={s.menuCard} style={{textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:8}}>{t.icon}</div>
@@ -1937,21 +1997,18 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
                 <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — {PILAR_TIPOS.find(t=>t.id===tipoP)?.label}</div>
                 <EsquemaPilar tipo={tipoP}/>
                 <div style={{marginTop:12,fontSize:11,color:'var(--text3)',fontFamily:'var(--mono)',textAlign:'center'}}>
-                  {tipoP==='ret'&&'Vol = (P.D. - Alt.Viga) × A × B / 1.000.000'}
-                  {tipoP==='red'&&'Vol = (π × A² / 4) × P.D. / 1.000.000'}
-                  {tipoP==='L'  &&'Vol = [(A×(B-D))+(C×D)] × P.D. / 1.000.000'}
-                  {tipoP==='T'  &&'Vol = [(A×B)+(C×D)] × P.D. / 1.000.000'}
+                  {tipoP==='ret'&&'Vol = Altura [cm] × A [cm] × B [cm] / 1.000.000'}
+                  {tipoP==='red'&&'Vol = (π × A² / 4) × Altura [cm] / 1.000.000'}
+                  {tipoP==='L'  &&'Vol = [(A×(B-D))+(C×D)] × Altura [cm] / 1.000.000'}
+                  {tipoP==='T'  &&'Vol = [(A×B)+(C×D)] × Altura [cm] / 1.000.000'}
                 </div>
               </div>
 
               {/* Campos */}
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                <div className={s.formGroup}><label className={s.formLabel}>Andar</label><input className={s.formInput} placeholder="ex: Térreo" value={andar} onChange={e=>setAndar(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
                 <div className={s.formGroup}><label className={s.formLabel}>Nome do Pilar</label><input className={s.formInput} placeholder="ex: P-01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                  <div className={s.formGroup}><label className={s.formLabel}>Pé Direito [cm]</label><input className={s.formInput} type="number" placeholder="280" value={peDireito} onChange={e=>setPeDireito(e.target.value)}/></div>
-                  <div className={s.formGroup}><label className={s.formLabel}>Alt. Viga [cm]</label><input className={s.formInput} type="number" placeholder="60" value={altViga} onChange={e=>setAltViga(e.target.value)}/></div>
-                </div>
+                <div className={s.formGroup}><label className={s.formLabel}>Altura Líquida [cm] <span style={{color:'var(--text3)',fontWeight:400}}>(Pé direito − viga)</span></label><input className={s.formInput} type="number" placeholder="220" value={peDireito} onChange={e=>setPeDireito(e.target.value)}/></div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                   <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Medida A [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mA} onChange={e=>setMA(e.target.value)}/></div>
                   {(tipoP==='ret'||tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Medida B [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mB} onChange={e=>setMB(e.target.value)}/></div>}
@@ -1997,7 +2054,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
                 </div>
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                <div className={s.formGroup}><label className={s.formLabel}>Andar</label><input className={s.formInput} placeholder="ex: Térreo" value={andar} onChange={e=>setAndar(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
                 <div className={s.formGroup}><label className={s.formLabel}>Nome</label><input className={s.formInput} placeholder="ex: Escada 01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
                 <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Comprimento [cm]</label><input className={s.formInput} type="number" placeholder="300" value={comprimento} onChange={e=>setComprimento(e.target.value)}/></div>
                 <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={largura} onChange={e=>setLargura(e.target.value)}/></div>
@@ -2149,8 +2206,15 @@ export default function Home() {
   const ordemAndares = config.ordemAndares||[];
   const andares = ordenarAndares([...new Set(pecas.map(p=>p.andar))], ordemAndares);
   const tipos   = [...new Set(pecas.map(p=>p.tipo))].sort();
-  const kpis    = calcKPIs(pecas,lancamentos,btsConfig,filtroAndar);
+  // Filtrar peças pelo filtroConc para KPIs
+  const pecasParaKPI = filtroConc==='todas' ? pecas :
+    pecas.filter(p=>pecaConc.filter(pc=>pc.concretagemId===filtroConc).map(pc=>pc.pecaId).includes(p.id));
+  const btsParaKPI = filtroConc==='todas' ? btsConfig : btsConfig.filter(b=>b.concretagemId===filtroConc);
+  const lansParaKPI = filtroConc==='todas' ? lancamentos : lancamentos.filter(l=>l.concretagemId===filtroConc);
+  const kpis    = calcKPIs(pecasParaKPI,lansParaKPI,btsParaKPI,filtroAndar);
   const perdaInfo = kpis.perdaInfo;
+  // Usar lancamentos filtrados para progresso por tipo
+  const lancamentosOp = filtroConc==='todas' ? lancamentos : lancamentos.filter(l=>l.concretagemId===filtroConc);
 
   const pecasFiltOp=pecas.filter(p=>
     (filtroAndar==='todos'||p.andar===filtroAndar)&&
@@ -2295,7 +2359,7 @@ export default function Home() {
                 <div className={s.panelTitle}>Progresso por Tipo
                   <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--text3)',fontWeight:400,marginLeft:6}}>▼ clique para ver peças</span>
                 </div>
-                <GraficoTipos pecas={pecasFiltOp} lancamentos={lancamentos}/>
+                <GraficoTipos pecas={pecasFiltOp} lancamentos={lancamentosOp}/>
               </div>
 
               {/* Última BT + Status BTs */}
@@ -2490,7 +2554,7 @@ export default function Home() {
         {tab==='levantamento'&&<PageLevantamento pecas={pecas} onEnviar={msg=>showToast(msg,'ok')}/>}
 
       {/* MODAIS */}
-      <ModalCalcConcreto open={modalCalc} onClose={()=>setModalCalc(false)} levantamento={levantamento} setLevantamento={setLevantamento}/>
+      <ModalCalcConcreto open={modalCalc} onClose={()=>setModalCalc(false)} levantamento={levantamento} setLevantamento={setLevantamento} config={config} pecas={pecas}/>
       <ModalLevantamento open={modalLevantamento} onClose={()=>setModalLevantamento(false)} levantamento={levantamento} setLevantamento={setLevantamento}
         onEnviarBase={async(itens)=>{
           try{
