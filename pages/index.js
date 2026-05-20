@@ -244,64 +244,118 @@ function GraficoBTs({ btsConfig, lancamentos, concretagens }) {
 }
 
 // ════════════════════════════════════════════════
-// GRÁFICO ANDARES (relatório)
+// GRÁFICO ANDARES (relatório) — barras + expandir
 // ════════════════════════════════════════════════
 function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
   const [aberto, setAberto] = useState(null);
+  const [filtroTipo, setFiltroTipo] = useState('todos');
   const dados = calcAndares(pecas, lancamentos, ordemAndares, indicePerda);
+  const tipos = ['todos', ...new Set(pecas.map(p=>p.tipo))].sort();
   const maxVol = Math.max(...dados.map(d=>d.prog), 0.01);
+
+  if(!dados.length) return <div className={s.empty}>Sem dados de andares</div>;
+
   return(
     <div>
-      {dados.map(d=>{
-        const open=aberto===d.andar;
-        const pecasAndar=pecas.filter(p=>p.andar===d.andar);
-        return(
-          <div key={d.andar} style={{marginBottom:8}}>
-            <div onClick={()=>setAberto(open?null:d.andar)} style={{display:'flex',alignItems:'center',gap:14,padding:'16px 20px',background:open?'rgba(232,162,37,0.06)':'var(--surface2)',border:`1px solid ${open?'var(--accent)':'var(--border)'}`,cursor:'pointer',transition:'all 0.2s'}}>
-              <div style={{flex:1}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                  <span style={{fontFamily:'var(--cond)',fontWeight:700,fontSize:17,letterSpacing:1,color:open?'var(--accent)':'var(--text)'}}>{d.andar}</span>
-                  <div style={{display:'flex',gap:24,alignItems:'center'}}>
-                    <span style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--text3)'}}>prev: {fmt4(d.prog)} m³</span>
-                    <span style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--green)',fontWeight:700}}>exec: {fmt4(d.conc)} m³</span>
-                    <span style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--red)'}}>falt: {fmt4(d.falt)} m³</span>
-                    <span style={{fontFamily:'var(--mono)',fontSize:16,color:'var(--accent)',fontWeight:700,minWidth:56,textAlign:'right'}}>{fmt1(d.pct)}%</span>
-                    <span style={{color:'var(--text3)',fontSize:14}}>{open?'▲':'▼'}</span>
-                  </div>
-                </div>
-                <div style={{height:8,background:'var(--surface)',borderRadius:1,overflow:'hidden'}}>
-                  <div style={{height:'100%',width:`${(d.conc/maxVol)*100}%`,background:d.pct>=100?'var(--green)':'var(--accent)',transition:'width 0.8s'}}/>
-                </div>
-              </div>
-            </div>
-            {open&&(
-              <div style={{border:'1px solid var(--accent)',borderTop:'none',background:'var(--surface)'}}>
-                {pecasAndar.map(p=>{
-                  const vc=Math.min(p.volume,volLancadoPeca(p.id,lancamentos));
-                  const pct=pctConcretado(p,lancamentos);
-                  const st=statusPeca(pct);
-                  return(
-                    <div key={p.id} style={{display:'flex',alignItems:'center',gap:16,padding:'12px 20px',borderBottom:'1px solid var(--border)'}}>
-                      <div style={{flex:1}}>
-                        <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
-                          <span style={{fontSize:14,fontWeight:600}}>{p.nome} <span style={{color:'var(--text3)',fontSize:12,fontWeight:400}}>· {p.tipo}</span></span>
-                          <span className={`${s.badge} ${badgeCls(st)}`}>{badgeLabel(st,pct)}</span>
-                        </div>
-                        <div style={{height:6,background:'var(--surface2)',borderRadius:1,overflow:'hidden'}}>
-                          <div style={{height:'100%',width:`${Math.min(100,pct)}%`,background:pct>=100?'var(--green)':'var(--accent)'}}/>
-                        </div>
-                        <div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:4}}>
-                          {fmt4(vc)} / {fmt4(p.volume)} m³
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+      {/* Filtro por tipo */}
+      <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+        {tipos.map(t=>(
+          <button key={t} onClick={()=>setFiltroTipo(t)} style={{
+            padding:'5px 14px', borderRadius:20, border:'1px solid', fontSize:12, fontWeight:600,
+            cursor:'pointer', transition:'all 0.15s',
+            background: filtroTipo===t ? 'var(--accent)' : 'transparent',
+            color: filtroTipo===t ? '#111' : 'var(--text3)',
+            borderColor: filtroTipo===t ? 'var(--accent)' : 'var(--border)',
+          }}>{t==='todos'?'Todos os tipos':t}</button>
+        ))}
+      </div>
+
+      {/* Legenda */}
+      <div style={{display:'flex',gap:20,marginBottom:16,flexWrap:'wrap'}}>
+        {[['var(--accent)','Previsto'],['var(--green)','Executado'],['var(--red)','Faltando']].map(([cor,label])=>(
+          <div key={label} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--text2)'}}>
+            <div style={{width:10,height:10,borderRadius:2,background:cor}}/>
+            {label}
           </div>
-        );
-      })}
+        ))}
+        {indicePerda!==0&&<div style={{fontSize:12,color:'var(--text3)',marginLeft:'auto'}}>* Projeção com perda de {fmt1(indicePerda)}%</div>}
+      </div>
+
+      {/* Gráfico de barras por andar */}
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {dados.map(d=>{
+          const pecasAndar = pecas.filter(p=>p.andar===d.andar&&(filtroTipo==='todos'||p.tipo===filtroTipo));
+          const progFilt = pecasAndar.reduce((s,p)=>s+p.volume,0);
+          const concFilt = pecasAndar.reduce((s,p)=>s+Math.min(p.volume,volLancadoPeca(p.id,lancamentos)),0);
+          const faltFilt = Math.max(0, progFilt-concFilt);
+          const pctFilt  = progFilt>0?(concFilt/progFilt)*100:0;
+          const open = aberto===d.andar;
+
+          return(
+            <div key={d.andar}>
+              {/* Linha do andar */}
+              <div onClick={()=>setAberto(open?null:d.andar)}
+                style={{display:'grid',gridTemplateColumns:'160px 1fr 80px 80px 80px 60px',gap:12,
+                  alignItems:'center',padding:'12px 16px',borderRadius:'var(--radius-sm)',
+                  background:open?'rgba(245,197,24,0.06)':'var(--surface2)',
+                  border:`1px solid ${open?'var(--accent)':'var(--border)'}`,
+                  cursor:'pointer',transition:'all 0.15s'}}>
+                {/* Nome andar */}
+                <span style={{fontSize:13,fontWeight:700,color:open?'var(--accent)':'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{d.andar}</span>
+                {/* Barra dupla */}
+                <div style={{position:'relative',height:20,background:'var(--surface)',borderRadius:4,overflow:'hidden'}}>
+                  {/* Previsto (fundo) */}
+                  <div style={{position:'absolute',left:0,top:0,height:'100%',width:'100%',background:'rgba(245,197,24,0.15)',borderRadius:4}}/>
+                  {/* Executado */}
+                  <div style={{position:'absolute',left:0,top:0,height:'100%',width:`${Math.min(100,pctFilt)}%`,background:pctFilt>=100?'var(--green)':'var(--accent)',borderRadius:4,transition:'width 0.8s'}}/>
+                </div>
+                {/* Valores */}
+                <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',textAlign:'right'}}>{fmt4(progFilt)}</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--green)',textAlign:'right',fontWeight:700}}>{fmt4(concFilt)}</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--red)',textAlign:'right'}}>{fmt4(faltFilt)}</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--accent)',textAlign:'right',fontWeight:700}}>{fmt1(pctFilt)}%</span>
+              </div>
+
+              {/* Expandir peças */}
+              {open&&(
+                <div style={{border:'1px solid rgba(245,197,24,0.3)',borderTop:'none',borderRadius:'0 0 var(--radius-sm) var(--radius-sm)',background:'var(--surface)',marginBottom:4}}>
+                  {/* Cabeçalho */}
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px 80px',gap:12,padding:'8px 16px',borderBottom:'1px solid var(--border)'}}>
+                    {['Peça','Previsto','Exec.','Falt.','%'].map(h=>(
+                      <span key={h} style={{fontSize:10,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1}}>{h}</span>
+                    ))}
+                  </div>
+                  {pecasAndar.length===0
+                    ?<div className={s.empty} style={{padding:'16px'}}>Sem peças com este tipo neste andar</div>
+                    :pecasAndar.map(p=>{
+                      const vc=Math.min(p.volume,volLancadoPeca(p.id,lancamentos));
+                      const pct=pctConcretado(p,lancamentos);
+                      const falt=Math.max(0,p.volume-vc);
+                      return(
+                        <div key={p.id} style={{display:'grid',gridTemplateColumns:'1fr 80px 80px 80px 80px',gap:12,padding:'10px 16px',borderBottom:'1px solid var(--border)',alignItems:'center'}}>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:600}}>{p.nome}</div>
+                            <div style={{fontSize:11,color:'var(--text3)'}}>{p.tipo}</div>
+                          </div>
+                          <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',textAlign:'right'}}>{fmt4(p.volume)}</span>
+                          <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--green)',textAlign:'right'}}>{fmt4(vc)}</span>
+                          <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--red)',textAlign:'right'}}>{fmt4(falt)}</span>
+                          <div style={{textAlign:'right'}}>
+                            <div style={{height:4,background:'var(--surface2)',borderRadius:2,overflow:'hidden',marginBottom:2}}>
+                              <div style={{height:'100%',width:`${Math.min(100,pct)}%`,background:pct>=100?'var(--green)':'var(--accent)'}}/>
+                            </div>
+                            <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',fontWeight:700}}>{fmt1(pct)}%</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  }
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
