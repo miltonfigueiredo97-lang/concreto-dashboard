@@ -271,14 +271,24 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
       </div>
 
       {/* Legenda */}
-      <div style={{display:'flex',gap:20,marginBottom:16,flexWrap:'wrap'}}>
-        {[['var(--accent)','Previsto'],['var(--green)','Executado'],['var(--red)','Faltando']].map(([cor,label])=>(
+      <div style={{display:'flex',gap:20,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+        {[
+          ['rgba(59,130,246,0.8)','Vol. Total Projeto'],
+          ['rgba(249,115,22,0.8)','Previsto c/ Perda'],
+          ['rgba(34,197,94,0.8)','Executado'],
+          ['rgba(239,68,68,0.8)','Faltando'],
+        ].map(([cor,label])=>(
           <div key={label} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--text2)'}}>
-            <div style={{width:10,height:10,borderRadius:2,background:cor}}/>
+            <div style={{width:12,height:12,borderRadius:2,background:cor}}/>
             {label}
           </div>
         ))}
-        {indicePerda!==0&&<div style={{fontSize:12,color:'var(--text3)',marginLeft:'auto'}}>* Projeção com perda de {fmt1(indicePerda)}%</div>}
+        {indicePerda!==0&&(
+          <div style={{fontSize:11,color:'var(--text3)',marginLeft:'auto'}}>
+            * Perda média atual: {fmt1(Math.abs(indicePerda))}% — aplicada ao volume faltando
+          </div>
+        )}
+        {indicePerda===0&&<div style={{fontSize:11,color:'var(--text3)',marginLeft:'auto'}}>Lance BTs para calcular a perda média</div>}
       </div>
 
       {/* Gráfico de barras verticais agrupadas por andar */}
@@ -295,7 +305,7 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
         const chartH = 220;
         const barW   = 18;
         const gap    = 8;
-        const groupW = barW*3 + gap*2 + 20;
+        const groupW = barW*4 + gap*3 + 20;
         const totalW = chartDados.length * groupW;
         const padL   = 52;
         const padB   = 60;
@@ -327,31 +337,44 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
 
               {/* Barras por andar */}
               {chartDados.map((d,i)=>{
-                const x0 = padL + i*groupW;
-                const hProg = d.prog>0 ? (d.prog/maxVal)*chartH : 0;
-                const hConc = d.conc>0 ? (d.conc/maxVal)*chartH : 0;
-                const hFalt = d.falt>0 ? (d.falt/maxVal)*chartH : 0;
+                const x0    = padL + i*groupW;
+                const hProj = d.proj>0     ? (d.proj/maxVal)*chartH     : 0;
+                const hConc = d.conc>0     ? (d.conc/maxVal)*chartH     : 0;
+                const hPrev = d.previsto>0 ? (d.previsto/maxVal)*chartH : 0;
+                const hFalt = d.falt>0     ? (d.falt/maxVal)*chartH     : 0;
                 const open  = aberto===d.andar;
 
                 return(
                   <g key={d.andar} onClick={()=>setAberto(open?null:d.andar)} style={{cursor:'pointer'}}>
-                    {/* Barra Previsto */}
-                    <rect x={x0} y={padT+chartH-hProg} width={barW} height={hProg}
-                      fill={open?'rgba(245,197,24,0.9)':'rgba(245,197,24,0.5)'} rx={2}/>
-                    {hProg>16&&<text x={x0+barW/2} y={padT+chartH-hProg-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.prog.toFixed(1)}</text>}
+                    {/* Barra 1: Volume Total Projeto (azul) */}
+                    <rect x={x0} y={padT+chartH-hProj} width={barW} height={hProj}
+                      fill={open?'rgba(59,130,246,1)':'rgba(59,130,246,0.6)'} rx={2}/>
+                    {hProj>18&&<text x={x0+barW/2} y={padT+chartH-hProj-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.proj.toFixed(1)}</text>}
 
-                    {/* Barra Executado */}
-                    <rect x={x0+barW+gap} y={padT+chartH-hConc} width={barW} height={hConc}
+                    {/* Barra 2: Previsto com perda (laranja) — só se houver faltando */}
+                    {d.previsto>0&&<>
+                      <rect x={x0+barW+gap} y={padT+chartH-hPrev} width={barW} height={hPrev}
+                        fill={open?'rgba(249,115,22,1)':'rgba(249,115,22,0.65)'} rx={2}/>
+                      {hPrev>18&&<text x={x0+barW+gap+barW/2} y={padT+chartH-hPrev-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.previsto.toFixed(1)}</text>}
+                    </>}
+                    {d.previsto===0&&d.falt===0&&<>
+                      <rect x={x0+barW+gap} y={padT+chartH-2} width={barW} height={2} fill="var(--border)" rx={1}/>
+                    </>}
+
+                    {/* Barra 3: Executado (verde) */}
+                    <rect x={x0+barW*2+gap*2} y={padT+chartH-hConc} width={barW} height={hConc}
                       fill={open?'rgba(34,197,94,1)':'rgba(34,197,94,0.7)'} rx={2}/>
-                    {hConc>16&&<text x={x0+barW+gap+barW/2} y={padT+chartH-hConc-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.conc.toFixed(1)}</text>}
+                    {hConc>18&&<text x={x0+barW*2+gap*2+barW/2} y={padT+chartH-hConc-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.conc.toFixed(1)}</text>}
 
-                    {/* Barra Faltando */}
-                    <rect x={x0+barW*2+gap*2} y={padT+chartH-hFalt} width={barW} height={hFalt}
-                      fill={open?'rgba(239,68,68,1)':'rgba(239,68,68,0.6)'} rx={2}/>
-                    {hFalt>16&&<text x={x0+barW*2+gap*2+barW/2} y={padT+chartH-hFalt-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.falt.toFixed(1)}</text>}
+                    {/* Barra 4: Faltando (vermelho) — só se houver */}
+                    {d.falt>0&&<>
+                      <rect x={x0+barW*3+gap*3} y={padT+chartH-hFalt} width={barW} height={hFalt}
+                        fill={open?'rgba(239,68,68,1)':'rgba(239,68,68,0.6)'} rx={2}/>
+                      {hFalt>18&&<text x={x0+barW*3+gap*3+barW/2} y={padT+chartH-hFalt-4} textAnchor="middle" fontSize={9} fill="var(--text2)" fontFamily="var(--mono)">{d.falt.toFixed(1)}</text>}
+                    </>}
 
                     {/* Label andar */}
-                    <text x={x0+barW*1.5+gap} y={padT+chartH+14} textAnchor="middle" fontSize={10}
+                    <text x={x0+barW*2+gap*1.5} y={padT+chartH+14} textAnchor="middle" fontSize={10}
                       fill={open?'var(--accent)':'var(--text3)'} fontFamily="sans-serif" fontWeight={open?700:400}>
                       {d.andar.length>10?d.andar.slice(0,9)+'…':d.andar}
                     </text>
