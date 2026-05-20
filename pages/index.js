@@ -599,21 +599,11 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
       if(i===0&&linha.toLowerCase().includes('nome')) return;
       const cols=linha.split('\t');
       const [n,t,a,vRaw]=(cols.map(c=>c.trim()));
-<<<<<<< HEAD
       if(!n||n==='') return;
       if(n.toLowerCase()==='nome') return;
       const v=parseFloat((vRaw||'').replace(',','.'));
       if(isNaN(v)||v<=0) return;
       ps.push({nome:n, tipo:t||'Viga', andar:normalizarAndar(a), volume:v});
-=======
-      // Ignora linhas com nome vazio silenciosamente
-      if(!n||n==='') return;
-      // Ignora linha se for cabeçalho
-      if(n.toLowerCase()==='nome') return;
-      const v=parseFloat((vRaw||'').replace(',','.'));
-      if(isNaN(v)||v<=0) return; // ignora linhas sem volume válido
-      ps.push({nome:n,tipo:t||'Viga',andar:a||'Sem andar',volume:v});
->>>>>>> bf10e65f70b54caf261c571c666e4d43fa74f6f1
     });
     if(ps.length===0){setErroImport('Nenhuma linha válida encontrada. Verifique o formato.');setPreviewImport([]);return;}
     setPreviewImport(ps);
@@ -622,7 +612,6 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
   function parsearArquivo(file){
     if(!file) return;
     setErroImport('');
-<<<<<<< HEAD
     const reader = new FileReader();
     reader.onload = (e) => {
       let txt = e.target.result;
@@ -633,12 +622,6 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
         reader2.readAsText(file, 'windows-1252');
         return;
       }
-=======
-    // Suporta TSV, CSV e Excel básico (lê como texto)
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const txt = e.target.result;
->>>>>>> bf10e65f70b54caf261c571c666e4d43fa74f6f1
       parsearImport(txt);
     };
     reader.readAsText(file, 'UTF-8');
@@ -1431,7 +1414,6 @@ function FiltroBar({ andares, concretagens, pecaConc, pecas, filtroAndar, setFil
 
 
 
-<<<<<<< HEAD
 
 // ════════════════════════════════════════════════
 // CALCULAR CONCRETO — Escada e Pilar
@@ -1557,7 +1539,7 @@ function PageCalcularConcreto({ andares, onRefresh }) {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:12,maxWidth:600}}>
           {[
             {id:'pilar',  icon:'⬛', label:'Pilar',   sub:'Ret, Redondo, L, T'},
-            {id:'escada', icon:'🪜', label:'Escada',  sub:'Espessura de laje'},
+            {id:'rampa', icon:'⟋',  label:'Rampa',   sub:'Comprimento × Largura × Esp. Laje'},
           ].map(t=>(
             <div key={t.id} className={s.menuCard} onClick={()=>setTipoFeature(t.id)} style={{textAlign:'center',padding:'28px 16px'}}>
               <div style={{fontSize:36,marginBottom:10}}>{t.icon}</div>
@@ -1884,7 +1866,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
       if(tipoP==='L')   return ((n(mA) * (n(mB) - n(mD))) + (n(mC) * n(mD))) * pd / 1000000;
       if(tipoP==='T')   return ((n(mA) * n(mB)) + (n(mC) * n(mD))) * pd / 1000000;
     }
-    if(tipoPeca==='escada') {
+    if(tipoPeca==='rampa') {
       return (n(comprimento) * n(largura) * n(altLaje)) / 1000000;
     }
     return 0;
@@ -1896,7 +1878,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
     if(!nome||!andar||volume<=0) return;
     const nova = {
       id: 'lev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      nome, andar, tipo: tipoPeca==='pilar'?'Pilar':'Escada', volume,
+      nome, andar, tipo: tipoPeca==='pilar'?'Pilar':'Rampa', volume,
     };
     setLevantamento(prev=>[...prev, nova]);
     // Reset campos mantendo andar
@@ -1917,7 +1899,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
               {[
                 {id:'pilar',  icon:'▭', label:'Pilares',  sub:'Retangular, redondo, L ou T'},
-                {id:'escada', icon:'▤', label:'Escadas',  sub:'Laje inclinada / degraus'},
+                {id:'rampa', icon:'▤', label:'Escadas',  sub:'Laje inclinada / degraus'},
               ].map(t=>(
                 <div key={t.id} onClick={()=>setTipoPeca(t.id)} className={s.menuCard} style={{textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:8}}>{t.icon}</div>
@@ -1997,11 +1979,11 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
         )}
 
         {/* ESCADA */}
-        {tipoPeca==='escada'&&(
+        {tipoPeca==='rampa'&&(
           <div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
               <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16}}>
-                <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — Escada/Rampa</div>
+                <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — Rampa</div>
                 <svg width={160} height={140} style={{display:'block',margin:'0 auto'}}>
                   <rect x={20} y={30} width={120} height={80} fill="none" stroke="var(--accent)" strokeWidth={2} rx={4}/>
                   <line x1={20} y1={115} x2={140} y2={115} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
@@ -2011,7 +1993,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento }) {
                   <text x={80} y={74} textAnchor="middle" fontSize={10} fill="var(--red)" fontFamily="sans-serif">Esp. Laje</text>
                 </svg>
                 <div style={{marginTop:8,fontSize:11,color:'var(--text3)',fontFamily:'var(--mono)',textAlign:'center'}}>
-                  Vol = Comp × Larg × Esp / 1.000.000
+                  Vol = Comp [cm] × Larg [cm] × Alt.Laje [cm] / 1.000.000
                 </div>
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -2136,8 +2118,6 @@ function ModalLevantamento({ open, onClose, levantamento, setLevantamento, onEnv
   );
 }
 
-=======
->>>>>>> bf10e65f70b54caf261c571c666e4d43fa74f6f1
 // ════════════════════════════════════════════════
 // PÁGINA PRINCIPAL
 // ════════════════════════════════════════════════
@@ -2203,17 +2183,13 @@ export default function Home() {
         </div>
 
         <nav className={s.sidebarNav}>
-<<<<<<< HEAD
           <div style={{padding:'8px 20px 4px',fontSize:10,fontWeight:700,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Principal</div>
-=======
->>>>>>> bf10e65f70b54caf261c571c666e4d43fa74f6f1
           <button className={`${s.sidebarItem} ${tab==='operacional'?s.sidebarItemActive:''}`} onClick={()=>setTab('operacional')}>
             <span className={s.sidebarItemIcon}>⬡</span> Operacional
           </button>
           <button className={`${s.sidebarItem} ${tab==='relatorios'?s.sidebarItemActive:''}`} onClick={()=>setTab('relatorios')}>
             <span className={s.sidebarItemIcon}>📊</span> Relatórios
           </button>
-<<<<<<< HEAD
           <div style={{padding:'16px 20px 4px',fontSize:10,fontWeight:700,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Levantamento</div>
           <button className={s.sidebarItem} onClick={()=>setModalCalc(true)}>
             <span className={s.sidebarItemIcon}>📐</span> Calcular Concreto
@@ -2223,8 +2199,6 @@ export default function Home() {
             {levantamento.length>0&&<span style={{marginLeft:'auto',background:'var(--accent)',color:'#111',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:10}}>{levantamento.length}</span>}
           </button>
           <div style={{padding:'16px 20px 4px',fontSize:10,fontWeight:700,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Sistema</div>
-=======
->>>>>>> bf10e65f70b54caf261c571c666e4d43fa74f6f1
           <button className={s.sidebarItem} onClick={()=>setModalConfig(true)}>
             <span className={s.sidebarItemIcon}>⚙</span> Configurações
           </button>
@@ -2509,7 +2483,6 @@ export default function Home() {
         )}
       </div>
 
-<<<<<<< HEAD
         {/* ══ CALCULAR CONCRETO ══ */}
         {tab==='calcular'&&<PageCalcularConcreto andares={[...new Set(pecas.map(p=>p.andar))].sort()} onRefresh={refresh}/>}
 
@@ -2527,9 +2500,6 @@ export default function Home() {
             setModalLevantamento(false);
           }catch(e){showToast('Erro: '+e.message,'err');}
         }}/>
-=======
-      {/* MODAIS */}
->>>>>>> bf10e65f70b54caf261c571c666e4d43fa74f6f1
       <ModalPecas       open={modalPecas}  onClose={()=>setModalPecas(false)}  pecas={pecas} onSalvo={msg=>showToast(msg,'ok')}/>
       <ModalConcretagem open={modalConc}   onClose={()=>setModalConc(false)}   pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} onSalvo={msg=>showToast(msg,'ok')}/>
       <ModalLancarBT    open={modalBT}     onClose={()=>setModalBT(false)}     pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} lancamentos={lancamentos} onSalvo={msg=>showToast(msg,'ok')}/>
