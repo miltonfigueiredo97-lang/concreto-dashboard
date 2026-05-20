@@ -770,3 +770,74 @@
   .steps { gap: 4px; }
   .stepLabel { display: none; }
 }
+
+/* ── FILTROS BAR ── */
+.filtrosBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px 24px;
+  margin-bottom: 24px;
+}
+
+.filtroLabel {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* ── MENU CARDS (seleção nova/editar concretagem) ── */
+.menuCard {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 24px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.menuCard:hover { border-color: var(--accent); }
+
+.menuCardIcon {
+  font-size: 28px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  font-family: var(--cond);
+  font-weight: 900;
+}
+
+.menuCardTitle {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 1px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.menuCardSub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* ── MODAL EXTRA WIDE ── */
+.modalExtraWide {
+  width: 860px;
+  max-width: 97vw;
+}
+
+/* ── TOAST ERR ── */
+.toastErr {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+@media (max-width: 900px) {
+  .filtrosBar { flex-direction: column; gap: 16px; }
+  .modalExtraWide { width: 97vw; }
+}
