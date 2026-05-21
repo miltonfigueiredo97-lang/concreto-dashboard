@@ -115,7 +115,14 @@ function DonutChart({ dados, total, size=120, thickness=20, label }) {
 // ════════════════════════════════════════════════
 function GraficoTipos({ pecas, lancamentos }) {
   const [aberto, setAberto] = useState(null);
-  const dados = calcPorTipo(pecas, lancamentos);
+  const TIPO_ORDEM_G = ['Pilar','Viga','Laje','Escada','Rampa','Fundação','Cortina','Outro'];
+  const dados = calcPorTipo(pecas, lancamentos)
+    .sort((a,b)=>{
+      const ia=TIPO_ORDEM_G.indexOf(a.tipo), ib=TIPO_ORDEM_G.indexOf(b.tipo);
+      if(ia===-1&&ib===-1) return a.tipo.localeCompare(b.tipo);
+      if(ia===-1) return 1; if(ib===-1) return -1;
+      return ia-ib;
+    });
   return(
     <div>
       {dados.map((t,i)=>{
@@ -1089,6 +1096,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
   const [modoLancamento, setModoLancamento] = useState('menu'); // menu | nova | editar
   const [step,setStep]=useState(1);
   const [concId,setConcId]=useState('');
+  const [filtroTipoBT,setFiltroTipoBT]=useState('todos');
   const [btId,setBtId]=useState('');
   const [nfEdit,setNfEdit]=useState('');
   const [codEdit,setCodEdit]=useState('');
@@ -1102,7 +1110,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
   useEffect(()=>{
     if(!open) return;
     setModoLancamento('menu');setErro('');setConcId('');setBtId('');setStep(1);
-    setLinhas([{pecaId:'',pct:''}]);setSobra('');setPerda('');
+    setLinhas([{pecaId:'',pct:''}]);setSobra('');setPerda('');setFiltroTipoBT('todos');
     const now=new Date();
     setHora(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
   },[open]);
@@ -1320,6 +1328,24 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
 
             {step===2&&(
               <div>
+                {/* Filtro por tipo de peça */}
+                {(()=>{
+                  const ORDEM=['todos','Pilar','Viga','Laje','Escada','Rampa','Fundação','Cortina','Outro'];
+                  const tiposDisp=['todos',...ORDEM.filter(t=>t!=='todos'&&(pecasConc.length>0?pecasConc:pecas).some(p=>p.tipo===t))];
+                  return tiposDisp.length>2?(
+                    <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+                      {tiposDisp.map(t=>(
+                        <button key={t} onClick={()=>setFiltroTipoBT(t)} style={{
+                          padding:'5px 14px',borderRadius:20,border:'1px solid',fontSize:12,fontWeight:600,cursor:'pointer',
+                          background:filtroTipoBT===t?'var(--accent)':'transparent',
+                          color:filtroTipoBT===t?'#111':'var(--text3)',
+                          borderColor:filtroTipoBT===t?'var(--accent)':'var(--border)',
+                        }}>{t==='todos'?'Todos os tipos':t}</button>
+                      ))}
+                    </div>
+                  ):null;
+                })()}
+
                 <div className={s.btResumo}>
                   <span style={{color:'var(--accent)',fontWeight:700}}>BT-{btSel?.numero}</span><span>|</span>
                   <span>{fmt4(volPrevisto)} m³ previsto</span><span>|</span>
@@ -1334,7 +1360,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                       {i===0&&<label className={s.formLabel}>Peça{pecasConc.length>0?' (desta concretagem)':''}</label>}
                       <select className={s.formSelect} value={l.pecaId} onChange={e=>updLinha(i,'pecaId',e.target.value)}>
                         <option value="">— selecione —</option>
-                        {(pecasConc.length>0?pecasConc:pecas).sort((a,b)=>a.nome.localeCompare(b.nome)).map(p=><option key={p.id} value={p.id}>{p.nome} ({p.andar}) — {fmt4(p.volume)} m³</option>)}
+                        {(pecasConc.length>0?pecasConc:pecas).filter(p=>filtroTipoBT==='todos'||p.tipo===filtroTipoBT).sort((a,b)=>a.nome.localeCompare(b.nome)).map(p=><option key={p.id} value={p.id}>{p.nome} ({p.andar}) — {fmt4(p.volume)} m³</option>)}
                       </select>
                     </div>
                     <div className={s.formGroup} style={{width:100}}>
@@ -2212,7 +2238,9 @@ export default function Home() {
 
   const ordemAndares = config.ordemAndares||[];
   const andares = ordenarAndares([...new Set(pecas.map(p=>p.andar))], ordemAndares);
-  const tipos   = [...new Set(pecas.map(p=>p.tipo))].sort();
+  const TIPO_ORDEM = ['Pilar','Viga','Laje','Escada','Rampa','Fundação','Cortina','Outro'];
+  const tipos = TIPO_ORDEM.filter(t=>[...new Set(pecas.map(p=>p.tipo))].includes(t))
+    .concat([...new Set(pecas.map(p=>p.tipo))].filter(t=>!TIPO_ORDEM.includes(t)).sort());
   // Filtrar peças pelo filtroConc para KPIs
   const pecasParaKPI = filtroConc==='todas' ? pecas :
     pecas.filter(p=>pecaConc.filter(pc=>pc.concretagemId===filtroConc).map(pc=>pc.pecaId).includes(p.id));
