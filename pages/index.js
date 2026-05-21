@@ -8,7 +8,7 @@ import {
 } from '../lib/calculos';
 import {
   apiAdicionarPeca, apiAdicionarPecaLote, apiEditarPeca, apiExcluirPeca,
-  apiSalvarConcretagem, apiLancarBT,
+  apiSalvarConcretagem, apiLancarBT, apiExcluirConcretagem,
 } from '../lib/api';
 
 
@@ -295,13 +295,14 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
       {(()=>{
         const chartDados = dados.map(d=>{
           const pecasAndar = pecas.filter(p=>p.andar===d.andar&&(filtroTipo==='todos'||p.tipo===filtroTipo));
-          const prog = pecasAndar.reduce((s,p)=>s+p.volume,0);
-          const conc = pecasAndar.reduce((s,p)=>s+Math.min(p.volume,volLancadoPeca(p.id,lancamentos)),0);
-          const falt = Math.max(0,prog-conc);
-          return { andar:d.andar, prog, conc, falt };
-        }).filter(d=>d.prog>0);
+          const proj     = pecasAndar.reduce((s,p)=>s+p.volume,0);
+          const conc     = pecasAndar.reduce((s,p)=>s+Math.min(p.volume,volLancadoPeca(p.id,lancamentos)),0);
+          const falt     = Math.max(0,proj-conc);
+          const previsto = falt>0 ? falt*(1+Math.abs(indicePerda)/100) : 0;
+          return { andar:d.andar, proj, conc, falt, previsto };
+        }).filter(d=>d.proj>0);
 
-        const maxVal = Math.max(...chartDados.map(d=>d.prog), 0.01);
+        const maxVal = Math.max(...chartDados.map(d=>Math.max(d.proj,d.conc,d.previsto,d.falt)), 0.01);
         const chartH = 220;
         const barW   = 18;
         const gap    = 8;
@@ -434,19 +435,59 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
 // ════════════════════════════════════════════════
 // MODAL: CONFIG DA OBRA
 // ════════════════════════════════════════════════
+
+// ── SELETOR DE ANDAR CENTRALIZADO ─────────────
+function AndarSelect({ value, onChange, config, pecas, style, placeholder }) {
+  const andaresCustm = config?.andaresCustm || [];
+  const andaresDaBase = [...new Set(pecas.map(p=>p.andar))];
+  const ordemConf = config?.ordemAndares || [];
+  const todosAndares = ordenarAndares(
+    [...new Set([...andaresDaBase, ...andaresCustm])],
+    ordemConf
+  );
+  return(
+    <select className={s.formSelect} value={value} onChange={onChange} style={style}>
+      <option value="">{placeholder||'— selecione o andar —'}</option>
+      {todosAndares.map(a=><option key={a} value={a}>{a}</option>)}
+    </select>
+  );
+}
+
 function ModalConfig({ open, onClose, pecas, config, onSalvar }) {
-  const andares = [...new Set(pecas.map(p=>p.andar))];
+  const andaresDaBase = [...new Set(pecas.map(p=>p.andar))];
   const ordemAtual = config.ordemAndares || [];
   const [ordem, setOrdem] = useState([]);
   const [nomeObra, setNomeObra] = useState('');
+  const [novoAndar, setNovoAndar] = useState('');
 
   useEffect(()=>{
     if(open){
-      const ord = ordenarAndares(andares, ordemAtual);
+      // Inclui andares das peças + andares customizados que não têm peças ainda
+      const todosAndares = [...new Set([...andaresDaBase, ...(config.andaresCustm||[])])];
+      const ord = ordenarAndares(todosAndares, ordemAtual);
       setOrdem(ord);
       setNomeObra(config.nomeObra||'');
     }
   },[open]);
+
+  function adicionarAndar(){
+    const a = novoAndar.trim();
+    if(!a||ordem.includes(a)) return;
+    setOrdem(prev=>[...prev, a]);
+    setNovoAndar('');
+  }
+
+  function removerAndar(a){
+    if(andaresDaBase.includes(a)){
+      // Tem peças — pode remover da lista de ordenação mas peças ficam com o andar
+      if(!confirm(`O andar "${a}" tem peças cadastradas.\nRemover da lista de andares não exclui as peças — elas continuarão existindo com este andar.\n\nDeseja remover "${a}" da lista mesmo assim?`)) return;
+    } else {
+      if(!confirm(`Remover o andar "${a}" da lista?`)) return;
+    }
+    setOrdem(prev=>prev.filter(x=>x!==a));
+  }
+
+  const [dragIdx, setDragIdx] = useState(null);
 
   function mover(i, dir) {
     const nova=[...ordem];
@@ -456,8 +497,23 @@ function ModalConfig({ open, onClose, pecas, config, onSalvar }) {
     setOrdem(nova);
   }
 
+  function inverter() { setOrdem(prev=>[...prev].reverse()); }
+
+  function onDragStart(i) { setDragIdx(i); }
+  function onDragOver(e,i) {
+    e.preventDefault();
+    if(dragIdx===null||dragIdx===i) return;
+    const nova=[...ordem];
+    const item=nova.splice(dragIdx,1)[0];
+    nova.splice(i,0,item);
+    setOrdem(nova);
+    setDragIdx(i);
+  }
+  function onDragEnd() { setDragIdx(null); }
+
   function salvar(){
-    onSalvar({...config, nomeObra, ordemAndares:ordem});
+    const andaresCustm = ordem.filter(a=>!andaresDaBase.includes(a));
+    onSalvar({...config, nomeObra, ordemAndares:ordem, andaresCustm});
     onClose();
   }
 
@@ -468,22 +524,41 @@ function ModalConfig({ open, onClose, pecas, config, onSalvar }) {
         <input className={s.formInput} placeholder="ex: Residencial Solar" value={nomeObra} onChange={e=>setNomeObra(e.target.value)}/>
       </div>
 
-      <div className={s.sectionTitle}>Ordem dos Andares</div>
-      <div style={{background:'var(--surface2)',border:'1px solid var(--border)',marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <div className={s.sectionTitle} style={{marginBottom:0,flex:1}}>Ordem dos Andares</div>
+        <button onClick={inverter} className={s.btnAction} style={{padding:'6px 14px',fontSize:12}}>⇅ Inverter ordem</button>
+      </div>
+      {/* Campo para adicionar novo andar */}
+      <div style={{display:'flex',gap:8,marginBottom:12}}>
+        <input className={s.formInput} placeholder="Adicionar andar (ex: 2º Subsolo, Cobertura...)"
+          value={novoAndar} onChange={e=>setNovoAndar(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&adicionarAndar()} style={{flex:1}}/>
+        <button className={s.btnPrimary} onClick={adicionarAndar} style={{padding:'10px 20px',whiteSpace:'nowrap',fontSize:13}}>+ Adicionar</button>
+      </div>
+      <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:10}}>Arraste para reordenar · ▲▼ para mover · ✕ remove andares sem peças</div>
+      <div style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',marginBottom:16}}>
         {ordem.length===0
           ?<div className={s.empty}>Nenhum andar cadastrado ainda.</div>
           :ordem.map((a,i)=>(
-            <div key={a} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderBottom:i<ordem.length-1?'1px solid var(--border)':'none'}}>
+            <div key={a}
+              draggable
+              onDragStart={()=>onDragStart(i)}
+              onDragOver={e=>onDragOver(e,i)}
+              onDragEnd={onDragEnd}
+              style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',
+                borderBottom:i<ordem.length-1?'1px solid var(--border)':'none',
+                background:dragIdx===i?'rgba(245,197,24,0.08)':'transparent',
+                cursor:'grab',transition:'background 0.1s',userSelect:'none'}}>
+              <span style={{color:'var(--text3)',fontSize:14}}>⠿</span>
               <span style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',width:24,textAlign:'right'}}>{i+1}</span>
-              <span style={{flex:1,fontWeight:600,fontSize:15}}>{a}</span>
-              <button onClick={()=>mover(i,-1)} disabled={i===0} style={{background:'none',border:'1px solid var(--border)',color:'var(--text2)',padding:'4px 10px',cursor:'pointer',fontFamily:'var(--mono)',fontSize:12,opacity:i===0?0.3:1}}>▲</button>
-              <button onClick={()=>mover(i,1)} disabled={i===ordem.length-1} style={{background:'none',border:'1px solid var(--border)',color:'var(--text2)',padding:'4px 10px',cursor:'pointer',fontFamily:'var(--mono)',fontSize:12,opacity:i===ordem.length-1?0.3:1}}>▼</button>
+              <span style={{flex:1,fontWeight:600,fontSize:14}}>{a}</span>
+              <button onClick={()=>mover(i,-1)} disabled={i===0} style={{background:'none',border:'1px solid var(--border)',borderRadius:4,color:'var(--text2)',padding:'4px 10px',cursor:'pointer',fontSize:12,opacity:i===0?0.3:1}}>▲</button>
+              <button onClick={()=>mover(i,1)} disabled={i===ordem.length-1} style={{background:'none',border:'1px solid var(--border)',borderRadius:4,color:'var(--text2)',padding:'4px 10px',cursor:'pointer',fontSize:12,opacity:i===ordem.length-1?0.3:1}}>▼</button>
+              <button onClick={()=>removerAndar(a)} title={andaresDaBase.includes(a)?'Tem peças — exclua as peças primeiro':'Remover andar'}
+                style={{background:'none',border:'1px solid var(--border)',borderRadius:4,color:andaresDaBase.includes(a)?'var(--text3)':'var(--red)',padding:'4px 8px',cursor:'pointer',fontSize:11,opacity:andaresDaBase.includes(a)?0.3:1}}>✕</button>
             </div>
           ))
         }
-      </div>
-      <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:16,lineHeight:1.8}}>
-        Use as setas para definir a ordem de exibição dos andares nos filtros e relatórios.
       </div>
       <div className={s.btnRow}>
         <button className={s.btnSecondary} onClick={onClose}>Cancelar</button>
@@ -505,10 +580,14 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
   const [nome,setNome]=useState(''); const [tipo,setTipo]=useState('Pilar');
   const [andar,setAndar]=useState(''); const [volume,setVolume]=useState('');
   const [textoImport,setTextoImport]=useState('');
+  const [termoBusca,setTermoBusca]=useState('');
+  const [andarBusca,setAndarBusca]=useState('todos');
   const [previewImport,setPreviewImport]=useState([]);
   const [erroImport,setErroImport]=useState('');
 
-  useEffect(()=>{ if(open){setModo('lista');setFiltro('');setErro('');} },[open]);
+  const [buscaNome, setBuscaNome] = useState('');
+  const [buscaSel, setBuscaSel]  = useState(null); // peça selecionada na busca
+  useEffect(()=>{ if(open){setModo('lista');setFiltro('');setErro('');setBuscaNome('');setBuscaSel(null);} },[open]);
   const andares=[...new Set(pecas.map(p=>p.andar))].sort();
   const pecasFilt=pecas.filter(p=>p.nome.toLowerCase().includes(filtro.toLowerCase())||p.andar.toLowerCase().includes(filtro.toLowerCase())||p.tipo.toLowerCase().includes(filtro.toLowerCase()));
 
@@ -540,21 +619,40 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
     const a=document.createElement('a');a.href=url;a.download='base_pecas.tsv';a.click();URL.revokeObjectURL(url);
   }
 
+  // Normaliza nome do andar: "1º SUBSOLO", "1o subsolo", "1� SUBSOLO" → "1º Subsolo"
+  function normalizarAndar(a){
+    if(!a) return 'Sem andar';
+    // Corrige encoding quebrado: o → º, a → ª
+    let s = a.trim()
+      .replace(/([0-9]+)\s*o/gi, '$1º')
+      .replace(/([0-9]+)\s*a/gi, '$1ª')
+      .replace(/�/g, 'º')
+      .replace(/\?/g, 'º');
+    // Padroniza capitalização: primeira letra maiúscula, resto minúsculo
+    s = s.toLowerCase()
+      .replace(/(^\w|\s\w)/g, c => c.toUpperCase())
+      .replace(/Subsolo/, 'Subsolo')
+      .replace(/Pavimento/, 'Pavimento');
+    // Casos especiais
+    s = s.replace(/Terreo/i, 'Térreo')
+         .replace(/TERREO/i, 'Térreo')
+         .replace(/Térreo/i, 'Térreo');
+    return s.trim();
+  }
+
   function parsearImport(txt){
     setErroImport('');
-    const linhas=txt.trim().split('\n').filter(l=>l.trim());
+    const linhas=txt.trim().split(/\r?\n/).filter(l=>l.trim());
     const ps=[],errs=[];
     linhas.forEach((linha,i)=>{
-      if(i===0&&linha.toLowerCase().includes('nome')) return; // pula cabeçalho
+      if(i===0&&linha.toLowerCase().includes('nome')) return;
       const cols=linha.split('\t');
       const [n,t,a,vRaw]=(cols.map(c=>c.trim()));
-      // Ignora linhas com nome vazio silenciosamente
       if(!n||n==='') return;
-      // Ignora linha se for cabeçalho
       if(n.toLowerCase()==='nome') return;
       const v=parseFloat((vRaw||'').replace(',','.'));
-      if(isNaN(v)||v<=0) return; // ignora linhas sem volume válido
-      ps.push({nome:n,tipo:t||'Viga',andar:a||'Sem andar',volume:v});
+      if(isNaN(v)||v<=0) return;
+      ps.push({nome:n, tipo:t||'Viga', andar:normalizarAndar(a), volume:v});
     });
     if(ps.length===0){setErroImport('Nenhuma linha válida encontrada. Verifique o formato.');setPreviewImport([]);return;}
     setPreviewImport(ps);
@@ -563,10 +661,16 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
   function parsearArquivo(file){
     if(!file) return;
     setErroImport('');
-    // Suporta TSV, CSV e Excel básico (lê como texto)
     const reader = new FileReader();
     reader.onload = (e) => {
-      const txt = e.target.result;
+      let txt = e.target.result;
+      // Se detectar caracteres quebrados típicos de Latin-1, relê com encoding correto
+      if(txt.includes('\uFFFD') || /[\x80-\x9F]/.test(txt)) {
+        const reader2 = new FileReader();
+        reader2.onload = (e2) => { parsearImport(e2.target.result); };
+        reader2.readAsText(file, 'windows-1252');
+        return;
+      }
       parsearImport(txt);
     };
     reader.readAsText(file, 'UTF-8');
@@ -584,8 +688,9 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
       {modo==='lista'&&(
         <div>
           <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
-            <input className={s.formInput} style={{flex:1,minWidth:160}} placeholder="Buscar..." value={filtro} onChange={e=>setFiltro(e.target.value)}/>
+            <input className={s.formInput} style={{flex:1,minWidth:160}} placeholder="Buscar peça..." value={filtro} onChange={e=>setFiltro(e.target.value)}/>
             <button className={s.btnAction} onClick={abrirNova}>+ Nova</button>
+            <button className={s.btnAction} onClick={()=>{setModo('buscar');setBuscaNome('');setBuscaSel(null);}}>🔍 Buscar Peça</button>
             <button className={s.btnAction} onClick={()=>{setModo('importar');setTextoImport('');setPreviewImport([]);setErroImport('');}}>⊞ Importar Lote</button>
           </div>
           {erro&&<div className={s.alertRed} style={{marginBottom:10}}>{erro}</div>}
@@ -604,6 +709,71 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
         </div>
       )}
 
+      {modo==='buscar'&&(
+        <div>
+          <div style={{marginBottom:16}}>
+            <label className={s.formLabel} style={{display:'block',marginBottom:8}}>Nome da Peça</label>
+            <input className={s.formInput} placeholder="ex: Pilar P-01, V201..." autoFocus
+              value={buscaNome} onChange={e=>{setBuscaNome(e.target.value);setBuscaSel(null);}}/>
+          </div>
+          {buscaNome.length>=2&&(()=>{
+            const termo = buscaNome.toLowerCase();
+            // Busca por nome mais próximo
+            const resultado = pecas
+              .filter(p=>p.nome.toLowerCase().includes(termo))
+              .reduce((acc,p)=>{
+                // Agrupa por nome base (ignora o andar)
+                const chave = p.nome;
+                if(!acc[chave]) acc[chave]=[];
+                acc[chave].push(p);
+                return acc;
+              },{});
+            const grupos = Object.entries(resultado).slice(0,10);
+            if(!grupos.length) return <div className={s.empty}>Nenhuma peça encontrada com "{buscaNome}"</div>;
+            return(
+              <div>
+                <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:10}}>{grupos.length} peça(s) encontrada(s)</div>
+                <div style={{maxHeight:200,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',marginBottom:16}}>
+                  {grupos.map(([nome,pecasGrupo])=>(
+                    <button key={nome} onClick={()=>setBuscaSel(nome)}
+                      style={{display:'block',width:'100%',textAlign:'left',padding:'12px 16px',border:'none',
+                        borderBottom:'1px solid var(--border)',
+                        background:buscaSel===nome?'rgba(245,197,24,0.1)':'transparent',
+                        color:buscaSel===nome?'var(--accent)':'var(--text)',
+                        fontSize:14,fontWeight:buscaSel===nome?700:500,cursor:'pointer'}}>
+                      {nome}
+                      <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginLeft:8}}>
+                        {pecasGrupo.length} andar{pecasGrupo.length!==1?'es':''}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {buscaSel&&(()=>{
+                  const pecasSel = pecas.filter(p=>p.nome===buscaSel);
+                  return(
+                    <div style={{border:'1px solid var(--accent)',borderRadius:'var(--radius-sm)',overflow:'hidden'}}>
+                      <div style={{padding:'10px 16px',background:'rgba(245,197,24,0.08)',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:14,color:'var(--accent)'}}>{buscaSel}</div>
+                      {pecasSel.map(p=>{
+                        const vc = volLancadoPeca ? 0 : 0; // será calculado no contexto pai
+                        return(
+                          <div key={p.id} style={{display:'grid',gridTemplateColumns:'1fr 100px 100px 80px',gap:12,padding:'12px 16px',borderBottom:'1px solid var(--border)',alignItems:'center'}}>
+                            <div><div style={{fontSize:14,fontWeight:600}}>{p.andar}</div><div style={{fontSize:11,color:'var(--text3)'}}>{p.tipo}</div></div>
+                            <div><div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:2}}>Projeto</div><div style={{fontFamily:'var(--mono)',fontSize:13,fontWeight:700}}>{fmt4(p.volume)} m³</div></div>
+                            <div><div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:2}}>Tipo</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{p.tipo}</div></div>
+                            <div style={{textAlign:'right'}}><span style={{fontSize:11,background:'rgba(245,197,24,0.1)',color:'var(--accent)',padding:'3px 8px',borderRadius:10,fontWeight:600}}>vol: {fmt4(p.volume)}</span></div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })()}
+          <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setModo('lista')}>← Voltar</button></div>
+        </div>
+      )}
+
       {(modo==='nova'||modo==='editar')&&(
         <div>
           <div style={{marginBottom:14,fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>{modo==='editar'?`Editando: ${editPeca.nome}`:'Nova peça'}</div>
@@ -617,6 +787,58 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
           <div className={s.btnRow}>
             <button className={s.btnSecondary} onClick={()=>setModo('lista')}>← Voltar</button>
             <button className={s.btnPrimary} disabled={salvando} onClick={salvarPeca}>{salvando?'⏳ Salvando...':(modo==='editar'?'Salvar':'Cadastrar')}</button>
+          </div>
+        </div>
+      )}
+
+      {modo==='buscar'&&(
+        <div>
+          <div style={{marginBottom:16}}>
+            <label className={s.formLabel} style={{display:'block',marginBottom:6}}>Nome da peça</label>
+            <input className={s.formInput} placeholder="ex: Pilar P-01, Viga V-..." value={termoBusca} autoFocus
+              onChange={e=>setTermoBusca(e.target.value)}/>
+          </div>
+          {(()=>{
+            const termo = termoBusca.toLowerCase().trim();
+            if(!termo) return <div className={s.empty}>Digite o nome da peça para buscar</div>;
+            const encontradas = pecas.filter(p=>p.nome.toLowerCase().includes(termo));
+            if(!encontradas.length) return <div className={s.empty}>Nenhuma peça encontrada com "{termoBusca}"</div>;
+            // Agrupar por nome base (ignorando andar)
+            const grupos = {};
+            encontradas.forEach(p=>{
+              const k = p.nome;
+              if(!grupos[k]) grupos[k]=[];
+              grupos[k].push(p);
+            });
+            return(
+              <div style={{maxHeight:380,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)'}}>
+                {Object.entries(grupos).map(([nome,ps])=>(
+                  <div key={nome} style={{borderBottom:'1px solid var(--border)'}}>
+                    <div style={{padding:'10px 16px',background:'var(--surface2)',fontWeight:700,fontSize:14,color:'var(--text)'}}>{nome}</div>
+                    {ps.map(p=>{
+                      const vc = typeof volLancadoPeca==='function' ? 0 : 0; // será calculado no dashboard
+                      return(
+                        <div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 20px',borderTop:'1px solid var(--border)'}}>
+                          <div>
+                            <div style={{fontSize:13,color:'var(--text2)'}}>{p.andar} · {p.tipo}</div>
+                            <div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:2}}>
+                              Volume: <span style={{color:'var(--accent)'}}>{p.volume} m³</span>
+                            </div>
+                          </div>
+                          <div style={{display:'flex',gap:8}}>
+                            <button className={s.btnAction} style={{padding:'5px 12px',fontSize:12}} onClick={()=>abrirEditar(p)}>Editar</button>
+                            <button className={s.btnDanger} onClick={()=>excluir(p)}>✕</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+          <div className={s.btnRow}>
+            <button className={s.btnSecondary} onClick={()=>{setModo('lista');setTermoBusca('');}}>← Voltar</button>
           </div>
         </div>
       )}
@@ -686,6 +908,21 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
 
   useEffect(()=>{ if(open){setSubModo('menu');setErro('');} },[open]);
 
+  async function excluirConc(){
+    if(!concSel){setErro('Selecione uma concretagem para excluir');return;}
+    const c=concretagens.find(x=>x.id===concSel);
+    if(!c)return;
+    if(!confirm(`Excluir Concretagem Nº${c.numero}? Isso removerá todas as peças vinculadas e BTs configuradas.`))return;
+    setSalvando(true);
+    try{
+      await apiExcluirConcretagem(c.id);
+      onSalvo(`Concretagem Nº${c.numero} excluída.`);
+      setConcSel('');
+      onClose();
+    }catch(e){setErro('Erro ao excluir: '+e.message);}
+    finally{setSalvando(false);}
+  }
+
   function iniciarNova(){setConcId(genId('c'));setNumero(String(concretagens.length+1));setData(new Date().toISOString().slice(0,10));setDesc('');setVinculos([]);setBts([]);setErro('');setStep(1);setFiltroAndar('todos');setFiltroTipo('todos');setSubModo('nova');}
   function iniciarEditar(){
     if(!concSel){setErro('Selecione uma concretagem');return;}
@@ -733,13 +970,16 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
             </div>
             <div className={s.menuCard} onClick={e=>e.stopPropagation()}>
               <div className={s.menuCardIcon}>✎</div>
-              <div className={s.menuCardTitle}>Editar Existente</div>
-              <div className={s.menuCardSub}>Alterar peças, BTs ou dados</div>
+              <div className={s.menuCardTitle}>Editar / Excluir</div>
+              <div className={s.menuCardSub}>Alterar peças, BTs ou excluir</div>
               <select className={s.formSelect} style={{marginTop:12}} value={concSel} onChange={e=>setConcSel(e.target.value)}>
                 <option value="">— selecione —</option>
                 {[...concretagens].sort((a,b)=>a.numero-b.numero).map(c=><option key={c.id} value={c.id}>Nº{c.numero} — {c.data}{c.descricao?` | ${c.descricao}`:''}</option>)}
               </select>
-              <button className={s.btnPrimary} style={{marginTop:10,width:'100%'}} onClick={iniciarEditar}>Editar →</button>
+              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:8,marginTop:10}}>
+                <button className={s.btnPrimary} onClick={iniciarEditar}>Editar →</button>
+                <button className={s.btnDanger} onClick={excluirConc} title="Excluir concretagem">🗑</button>
+              </div>
             </div>
           </div>
           <div className={s.btnRow}><button className={s.btnSecondary} onClick={onClose}>Fechar</button></div>
@@ -1108,7 +1348,12 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                     <div style={{alignSelf:'flex-end',paddingBottom:2}}>{linhas.length>1&&<button className={s.btnDanger} onClick={()=>remLinha(i)}>✕</button>}</div>
                   </div>
                 );})}
-                <button className={s.btnSecondary} style={{marginTop:12}} onClick={addLinha}>+ Adicionar peça</button>
+                <div style={{display:'flex',gap:10,marginTop:12}}>
+                  <button className={s.btnSecondary} onClick={addLinha}>+ Adicionar peça</button>
+                  <button onClick={()=>setLinhas([{pecaId:'',pct:''}])} style={{background:'none',border:'1px solid var(--red)',color:'var(--red)',padding:'8px 14px',borderRadius:'var(--radius-sm)',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                    🗑 Zerar tudo
+                  </button>
+                </div>
                 {totalUsado>volPrevisto&&<div className={s.alertBlue} style={{marginTop:10}}>ℹ Volume acima do previsto — sobra inesperada de {fmt4(totalUsado-volPrevisto)} m³.</div>}
                 <div className={s.btnRow}>
                   <button className={s.btnSecondary} onClick={()=>setStep(1)}>← Voltar</button>
@@ -1223,6 +1468,720 @@ function FiltroBar({ andares, concretagens, pecaConc, pecas, filtroAndar, setFil
 
 
 
+
+// ════════════════════════════════════════════════
+// CALCULAR CONCRETO — Escada e Pilar
+// ════════════════════════════════════════════════
+
+const TIPOS_PILAR = [
+  { id:'ret',  label:'Retangular', desc:'A × B',      img:'▬', formula:'(PD × A × B) / 1.000.000' },
+  { id:'red',  label:'Redondo',    desc:'Ø A',         img:'●', formula:'(π × A² / 4 × PD) / 1.000.000' },
+  { id:'l',    label:'Tipo L',     desc:'A,B,C,D',     img:'⌐', formula:'(A×(B−D) + C×D) × PD / 1.000.000' },
+  { id:'t',    label:'Tipo T',     desc:'A,B,C,D',     img:'⊤', formula:'(A×B + C×D) × PD / 1.000.000' },
+];
+
+function calcVolPilar(tipo, pd, a, b, c, d) {
+  const P=parseFloat(pd)||0, A=parseFloat(a)||0, B=parseFloat(b)||0,
+        C=parseFloat(c)||0, D=parseFloat(d)||0;
+  if(tipo==='ret') return (P*A*B)/1e6;
+  if(tipo==='red') return ((Math.PI*A*A/4)*P)/1e6;
+  if(tipo==='l')   return ((A*(B-D))+(C*D))*P/1e6;
+  if(tipo==='t')   return ((A*B)+(C*D))*P/1e6;
+  return 0;
+}
+
+function calcVolEscada(comp, larg, alt) {
+  return (parseFloat(comp)||0)*(parseFloat(larg)||0)*(parseFloat(alt)||0)/1e6;
+}
+
+function PilarDiagram({ tipo }) {
+  const sz = 120;
+  if(tipo==='ret') return(
+    <svg width={sz} height={sz} style={{margin:'0 auto',display:'block'}}>
+      <rect x={20} y={20} width={80} height={80} fill="rgba(245,197,24,0.15)" stroke="var(--accent)" strokeWidth={2} rx={2}/>
+      <line x1={20} y1={60} x2={10} y2={60} stroke="var(--blue)" strokeWidth={1.5}/>
+      <text x={5} y={55} fontSize={9} fill="var(--blue)" textAnchor="middle">B</text>
+      <line x1={60} y1={20} x2={60} y2={10} stroke="var(--blue)" strokeWidth={1.5}/>
+      <text x={60} y={7} fontSize={9} fill="var(--blue)" textAnchor="middle">A</text>
+      <text x={60} y={65} fontSize={11} fill="var(--text2)" textAnchor="middle">Retangular</text>
+    </svg>
+  );
+  if(tipo==='red') return(
+    <svg width={sz} height={sz} style={{margin:'0 auto',display:'block'}}>
+      <circle cx={60} cy={55} r={40} fill="rgba(245,197,24,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+      <line x1={60} y1={55} x2={100} y2={55} stroke="var(--blue)" strokeWidth={1.5}/>
+      <text x={82} y={50} fontSize={9} fill="var(--blue)">A</text>
+      <text x={60} y={115} fontSize={10} fill="var(--text2)" textAnchor="middle">Redondo (Ø)</text>
+    </svg>
+  );
+  if(tipo==='l') return(
+    <svg width={sz} height={sz} style={{margin:'0 auto',display:'block'}}>
+      <path d="M20,20 L20,100 L55,100 L55,70 L50,70 L50,20 Z" fill="rgba(245,197,24,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+      <text x={35} y={45} fontSize={9} fill="var(--blue)" textAnchor="middle">A</text>
+      <text x={22} y={85} fontSize={9} fill="var(--blue)">C</text>
+      <text x={38} y={108} fontSize={9} fill="var(--blue)" textAnchor="middle">D</text>
+      <text x={52} y={50} fontSize={9} fill="var(--blue)">B</text>
+      <text x={40} y={118} fontSize={10} fill="var(--text2)" textAnchor="middle">Tipo L</text>
+    </svg>
+  );
+  if(tipo==='t') return(
+    <svg width={sz} height={sz} style={{margin:'0 auto',display:'block'}}>
+      <path d="M10,20 L110,20 L110,45 L70,45 L70,100 L50,100 L50,45 L10,45 Z" fill="rgba(245,197,24,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+      <text x={60} y={35} fontSize={9} fill="var(--blue)" textAnchor="middle">A</text>
+      <text x={5} y={35} fontSize={9} fill="var(--blue)">B</text>
+      <text x={60} y={75} fontSize={9} fill="var(--blue)" textAnchor="middle">C</text>
+      <text x={72} y={75} fontSize={9} fill="var(--blue)">D</text>
+      <text x={60} y={115} fontSize={10} fill="var(--text2)" textAnchor="middle">Tipo T</text>
+    </svg>
+  );
+  return null;
+}
+
+// Armazenamento local do levantamento
+const STORAGE_KEY = 'concreto_levantamento';
+function getLevantamento() { try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch{return[];} }
+function setLevantamento(items) { try{localStorage.setItem(STORAGE_KEY,JSON.stringify(items));}catch{} }
+
+function PageCalcularConcreto({ andares, onRefresh }) {
+  const [tipoFeature, setTipoFeature] = useState(null); // null | 'pilar' | 'escada'
+  const [tipoPilar, setTipoPilar]     = useState('ret');
+  const [form, setForm]               = useState({});
+  const [vol, setVol]                 = useState(null);
+  const [saved, setSaved]             = useState(false);
+  const andaresList                   = andares.length ? andares : [];
+
+  function upd(k,v) { setForm(p=>({...p,[k]:v})); setSaved(false); setVol(null); }
+
+  function calcular() {
+    let v = 0;
+    if(tipoFeature==='pilar')
+      v = calcVolPilar(tipoPilar, form.pd, form.a, form.b, form.c, form.d);
+    if(tipoFeature==='escada')
+      v = calcVolEscada(form.comp, form.larg, form.alt);
+    setVol(v);
+    setSaved(false);
+  }
+
+  function adicionar() {
+    if(!vol||!form.nome) return;
+    const item = {
+      id: `lev_${Date.now()}`,
+      nome: form.nome,
+      tipo: tipoFeature==='pilar'?'Pilar':'Escada',
+      andar: form.andar||'',
+      volume: parseFloat(vol.toFixed(6)),
+      detalhes: tipoFeature==='pilar'
+        ? `${TIPOS_PILAR.find(t=>t.id===tipoPilar)?.label} PD=${form.pd} A=${form.a}${form.b?` B=${form.b}`:''}${form.c?` C=${form.c}`:''}${form.d?` D=${form.d}`:''}`
+        : `L=${form.comp} × W=${form.larg} × H=${form.alt}`,
+    };
+    const lista = [...getLevantamento(), item];
+    setLevantamento(lista);
+    setSaved(true);
+    setForm({andar:form.andar||''});
+    setVol(null);
+  }
+
+  return(
+    <div className={s.page} style={{animation:'fadein 0.25s ease'}}>
+      <div style={{marginBottom:24}}>
+        <h2 style={{fontSize:22,fontWeight:800,color:'var(--text)',marginBottom:4}}>📐 Calcular Concreto</h2>
+        <p style={{color:'var(--text3)',fontSize:13}}>Calcule o volume de cada peça e adicione ao levantamento.</p>
+      </div>
+
+      {/* Seleção de tipo */}
+      {!tipoFeature&&(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:12,maxWidth:600}}>
+          {[
+            {id:'pilar',  icon:'⬛', label:'Pilar',   sub:'Ret, Redondo, L, T'},
+            {id:'rampa', icon:'⟋',  label:'Rampa',   sub:'Comprimento × Largura × Esp. Laje'},
+          ].map(t=>(
+            <div key={t.id} className={s.menuCard} onClick={()=>setTipoFeature(t.id)} style={{textAlign:'center',padding:'28px 16px'}}>
+              <div style={{fontSize:36,marginBottom:10}}>{t.icon}</div>
+              <div className={s.menuCardTitle}>{t.label}</div>
+              <div className={s.menuCardSub}>{t.sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* FORMULÁRIO PILAR */}
+      {tipoFeature==='pilar'&&(
+        <div style={{maxWidth:680}}>
+          <button className={s.btnSecondary} style={{marginBottom:20}} onClick={()=>{setTipoFeature(null);setVol(null);setForm({});}}>← Voltar</button>
+
+          {/* Seletor tipo de pilar */}
+          <div style={{marginBottom:20}}>
+            <label className={s.formLabel} style={{display:'block',marginBottom:10}}>Tipo de Pilar</label>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+              {TIPOS_PILAR.map(t=>(
+                <div key={t.id} onClick={()=>setTipoPilar(t.id)}
+                  style={{padding:'14px 10px',border:`2px solid ${tipoPilar===t.id?'var(--accent)':'var(--border)'}`,borderRadius:'var(--radius-sm)',
+                    background:tipoPilar===t.id?'rgba(245,197,24,0.08)':'var(--surface2)',cursor:'pointer',textAlign:'center',transition:'all 0.15s'}}>
+                  <div style={{fontSize:24,marginBottom:6}}>{t.img}</div>
+                  <div style={{fontWeight:700,fontSize:13,color:tipoPilar===t.id?'var(--accent)':'var(--text)'}}>{t.label}</div>
+                  <div style={{fontSize:10,color:'var(--text3)',marginTop:2}}>{t.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,alignItems:'start'}}>
+            {/* Diagrama */}
+            <div className={s.panel} style={{padding:20}}>
+              <div className={s.panelTitle} style={{marginBottom:16}}>Diagrama</div>
+              <PilarDiagram tipo={tipoPilar}/>
+              <div style={{marginTop:12,fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',textAlign:'center',lineHeight:1.8}}>
+                {TIPOS_PILAR.find(t=>t.id===tipoPilar)?.formula}
+              </div>
+            </div>
+
+            {/* Campos */}
+            <div>
+              <div className={s.formGrid} style={{marginBottom:14}}>
+                <div className={s.formGroup}>
+                  <label className={s.formLabel}>Andar</label>
+                  <input className={s.formInput} list="andares-list" placeholder="ex: Térreo" value={form.andar||''} onChange={e=>upd('andar',e.target.value)}/>
+                  <datalist id="andares-list">{andaresList.map(a=><option key={a} value={a}/>)}</datalist>
+                </div>
+                <div className={s.formGroup}>
+                  <label className={s.formLabel}>Nome da Peça</label>
+                  <input className={s.formInput} placeholder="ex: P-01" value={form.nome||''} onChange={e=>upd('nome',e.target.value)}/>
+                </div>
+                <div className={s.formGroup}>
+                  <label className={s.formLabel}>Pé Direito [cm]</label>
+                  <input className={s.formInput} type="number" step="0.1" min="0" value={form.pd||''} onChange={e=>upd('pd',e.target.value)}/>
+                </div>
+                {(tipoPilar==='ret'||tipoPilar==='red'||tipoPilar==='l'||tipoPilar==='t')&&(
+                  <div className={s.formGroup}>
+                    <label className={s.formLabel}>Medida A [cm]{tipoPilar==='red'?' (Diâmetro)':''}</label>
+                    <input className={s.formInput} type="number" step="0.1" min="0" value={form.a||''} onChange={e=>upd('a',e.target.value)}/>
+                  </div>
+                )}
+                {(tipoPilar==='ret'||tipoPilar==='l'||tipoPilar==='t')&&(
+                  <div className={s.formGroup}>
+                    <label className={s.formLabel}>Medida B [cm]</label>
+                    <input className={s.formInput} type="number" step="0.1" min="0" value={form.b||''} onChange={e=>upd('b',e.target.value)}/>
+                  </div>
+                )}
+                {(tipoPilar==='l'||tipoPilar==='t')&&(<>
+                  <div className={s.formGroup}>
+                    <label className={s.formLabel}>Medida C [cm]</label>
+                    <input className={s.formInput} type="number" step="0.1" min="0" value={form.c||''} onChange={e=>upd('c',e.target.value)}/>
+                  </div>
+                  <div className={s.formGroup}>
+                    <label className={s.formLabel}>Medida D [cm]</label>
+                    <input className={s.formInput} type="number" step="0.1" min="0" value={form.d||''} onChange={e=>upd('d',e.target.value)}/>
+                  </div>
+                </>)}
+              </div>
+
+              <button className={s.btnPrimary} style={{width:'100%',padding:'12px'}} onClick={calcular}>Calcular Volume</button>
+
+              {vol!==null&&(
+                <div style={{marginTop:14,padding:'16px',background:'rgba(245,197,24,0.08)',border:'1px solid var(--accent)',borderRadius:'var(--radius-sm)',textAlign:'center'}}>
+                  <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>Volume calculado</div>
+                  <div style={{fontSize:32,fontWeight:800,color:'var(--accent)',fontFamily:'var(--mono)'}}>{vol.toFixed(6)}<span style={{fontSize:14,marginLeft:4}}>m³</span></div>
+                  {!form.nome&&<div style={{fontSize:11,color:'var(--red)',marginTop:8}}>Preencha o nome da peça para adicionar</div>}
+                  {form.nome&&!saved&&<button className={s.btnPrimary} style={{marginTop:12,width:'100%'}} onClick={adicionar}>+ Adicionar ao Levantamento</button>}
+                  {saved&&<div style={{marginTop:10,color:'var(--green)',fontSize:13,fontWeight:600}}>✓ Adicionado ao levantamento!</div>}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FORMULÁRIO ESCADA */}
+      {tipoFeature==='escada'&&(
+        <div style={{maxWidth:500}}>
+          <button className={s.btnSecondary} style={{marginBottom:20}} onClick={()=>{setTipoFeature(null);setVol(null);setForm({});}}>← Voltar</button>
+          <div className={s.panel}>
+            <div className={s.panelTitle}>Escada / Rampa</div>
+            <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:16}}>
+              Volume = (Comprimento × Largura × Altura) / 1.000.000
+            </div>
+            <div className={s.formGrid}>
+              <div className={s.formGroup}>
+                <label className={s.formLabel}>Andar</label>
+                <input className={s.formInput} list="andares-list2" placeholder="ex: Térreo" value={form.andar||''} onChange={e=>upd('andar',e.target.value)}/>
+                <datalist id="andares-list2">{andaresList.map(a=><option key={a} value={a}/>)}</datalist>
+              </div>
+              <div className={s.formGroup}>
+                <label className={s.formLabel}>Nome</label>
+                <input className={s.formInput} placeholder="ex: ESC-01" value={form.nome||''} onChange={e=>upd('nome',e.target.value)}/>
+              </div>
+              <div className={s.formGroup}>
+                <label className={s.formLabel}>Comprimento [cm]</label>
+                <input className={s.formInput} type="number" step="0.1" min="0" value={form.comp||''} onChange={e=>upd('comp',e.target.value)}/>
+              </div>
+              <div className={s.formGroup}>
+                <label className={s.formLabel}>Largura [cm]</label>
+                <input className={s.formInput} type="number" step="0.1" min="0" value={form.larg||''} onChange={e=>upd('larg',e.target.value)}/>
+              </div>
+              <div className={`${s.formGroup} ${s.formGroupFull}`}>
+                <label className={s.formLabel}>Altura da Laje [cm]</label>
+                <input className={s.formInput} type="number" step="0.1" min="0" value={form.alt||''} onChange={e=>upd('alt',e.target.value)}/>
+              </div>
+            </div>
+            <button className={s.btnPrimary} style={{width:'100%',marginTop:14,padding:'12px'}} onClick={calcular}>Calcular Volume</button>
+            {vol!==null&&(
+              <div style={{marginTop:14,padding:'16px',background:'rgba(245,197,24,0.08)',border:'1px solid var(--accent)',borderRadius:'var(--radius-sm)',textAlign:'center'}}>
+                <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>Volume calculado</div>
+                <div style={{fontSize:32,fontWeight:800,color:'var(--accent)',fontFamily:'var(--mono)'}}>{vol.toFixed(6)}<span style={{fontSize:14,marginLeft:4}}>m³</span></div>
+                {form.nome&&!saved&&<button className={s.btnPrimary} style={{marginTop:12,width:'100%'}} onClick={adicionar}>+ Adicionar ao Levantamento</button>}
+                {saved&&<div style={{marginTop:10,color:'var(--green)',fontSize:13,fontWeight:600}}>✓ Adicionado!</div>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// LEVANTAMENTO DE CONCRETO
+// ════════════════════════════════════════════════
+function PageLevantamento({ pecas, onEnviar }) {
+  const [items, setItems]     = useState(getLevantamento);
+  const [filtTipo, setFiltTipo] = useState('todos');
+  const [filtAndar, setFiltAndar] = useState('todos');
+  const [enviando, setEnviando] = useState(false);
+
+  const tipos   = ['todos',...new Set(items.map(i=>i.tipo))];
+  const andares = ['todos',...new Set(items.map(i=>i.andar)).values()].filter(Boolean);
+
+  const filtrados = items.filter(i=>
+    (filtTipo==='todos'||i.tipo===filtTipo)&&
+    (filtAndar==='todos'||i.andar===filtAndar)
+  );
+
+  function remover(id) {
+    const nova = items.filter(i=>i.id!==id);
+    setItems(nova); setLevantamento(nova);
+  }
+
+  async function enviarParaBase() {
+    if(!items.length) return;
+    if(!confirm(`Enviar ${items.length} peças do levantamento para a base de dados?`)) return;
+    setEnviando(true);
+    try {
+      const {apiAdicionarPecaLote} = await import('../lib/api');
+      await apiAdicionarPecaLote(items.map(i=>({nome:i.nome,tipo:i.tipo,andar:i.andar,volume:i.volume})));
+      onEnviar(`✓ ${items.length} peças enviadas para a base!`);
+      setItems([]); setLevantamento([]);
+    } catch(e){ alert('Erro: '+e.message); }
+    finally{ setEnviando(false); }
+  }
+
+  return(
+    <div className={s.page} style={{animation:'fadein 0.25s ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:24,flexWrap:'wrap',gap:12}}>
+        <div>
+          <h2 style={{fontSize:22,fontWeight:800,color:'var(--text)',marginBottom:4}}>📋 Levantamento de Concreto</h2>
+          <p style={{color:'var(--text3)',fontSize:13}}>{items.length} peça{items.length!==1?'s':''} no levantamento</p>
+        </div>
+        <button className={s.btnPrimary} disabled={!items.length||enviando} onClick={enviarParaBase}
+          style={{padding:'12px 24px',opacity:items.length?1:0.5}}>
+          {enviando?'⏳ Enviando...':'↑ Enviar para Base de Dados'}
+        </button>
+      </div>
+
+      {/* Filtros */}
+      <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}}>
+        <div>
+          <label className={s.formLabel} style={{display:'block',marginBottom:6}}>Tipo</label>
+          <select className={s.formSelect} value={filtTipo} onChange={e=>setFiltTipo(e.target.value)}>
+            {tipos.map(t=><option key={t} value={t}>{t==='todos'?'Todos os tipos':t}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={s.formLabel} style={{display:'block',marginBottom:6}}>Andar</label>
+          <select className={s.formSelect} value={filtAndar} onChange={e=>setFiltAndar(e.target.value)}>
+            {andares.map(a=><option key={a} value={a}>{a==='todos'?'Todos os andares':a}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Lista */}
+      {filtrados.length===0
+        ?<div className={s.empty} style={{marginTop:40}}>
+            {items.length===0
+              ?<>Nenhuma peça calculada ainda.<br/>Use "Calcular Concreto" para adicionar.</>
+              :'Nenhuma peça com estes filtros.'}
+          </div>
+        :<div className={s.panel} style={{padding:0}}>
+          <table className={s.table}>
+            <thead><tr><th>#</th><th>Nome</th><th>Tipo</th><th>Andar</th><th>Volume (m³)</th><th>Detalhes</th><th></th></tr></thead>
+            <tbody>{filtrados.map((item,i)=>(
+              <tr key={item.id}>
+                <td className={s.tdMuted}>{i+1}</td>
+                <td style={{fontWeight:600}}>{item.nome}</td>
+                <td className={s.tdMono}>{item.tipo}</td>
+                <td className={s.tdMono}>{item.andar||'—'}</td>
+                <td className={s.tdAccent}>{item.volume.toFixed(6)}</td>
+                <td className={s.tdMuted} style={{fontSize:11,maxWidth:200,whiteSpace:'normal'}}>{item.detalhes}</td>
+                <td><button className={s.btnDanger} onClick={()=>remover(item.id)}>✕</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+          {/* Total */}
+          <div style={{padding:'12px 16px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end',gap:24}}>
+            <span style={{fontSize:13,color:'var(--text3)'}}>Total ({filtrados.length} peças):</span>
+            <span style={{fontFamily:'var(--mono)',fontWeight:700,color:'var(--accent)',fontSize:15}}>
+              {filtrados.reduce((s,i)=>s+i.volume,0).toFixed(4)} m³
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  );
+}
+
+
+// ════════════════════════════════════════════════
+// MODAL: CALCULAR CONCRETO
+// ════════════════════════════════════════════════
+const PILAR_TIPOS = [
+  { id:'ret',  label:'Retangular', icon:'▭', desc:'Seção retangular simples' },
+  { id:'red',  label:'Redondo',    icon:'◯', desc:'Seção circular' },
+  { id:'L',    label:'Tipo L',     icon:'⌐', desc:'Seção em forma de L' },
+  { id:'T',    label:'Tipo T',     icon:'⊤', desc:'Seção em forma de T' },
+];
+
+function EsquemaPilar({ tipo }) {
+  const W=170, H=170;
+  if(tipo==='ret') return (
+    <svg width={W} height={H} style={{display:'block',margin:'0 auto'}}>
+      <rect x={30} y={20} width={100} height={120} fill="none" stroke="var(--accent)" strokeWidth={2}/>
+      {/* A = largura, B = altura */}
+      <line x1={30} y1={150} x2={130} y2={150} stroke="var(--blue)" strokeWidth={1} strokeDasharray="4,2"/>
+      <text x={80} y={158} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif">A</text>
+      <line x1={140} y1={20} x2={140} y2={140} stroke="var(--green)" strokeWidth={1} strokeDasharray="4,2"/>
+      <text x={152} y={84} textAnchor="middle" fontSize={11} fill="var(--green)" fontFamily="sans-serif">B</text>
+      <text x={80} y={84} textAnchor="middle" fontSize={10} fill="var(--text3)" fontFamily="sans-serif">P.D.</text>
+    </svg>
+  );
+  if(tipo==='red') return (
+    <svg width={W} height={H} style={{display:'block',margin:'0 auto'}}>
+      <ellipse cx={80} cy={80} rx={55} ry={55} fill="none" stroke="var(--accent)" strokeWidth={2}/>
+      <line x1={80} y1={80} x2={135} y2={80} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+      <text x={110} y={76} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif">A (r)</text>
+      <text x={80} y={84} textAnchor="middle" fontSize={10} fill="var(--text3)" fontFamily="sans-serif">P.D.</text>
+    </svg>
+  );
+  if(tipo==='L') return (
+    <svg viewBox="0 0 180 180" width={W} height={H} style={{display:'block',margin:'0 auto'}}>
+      {/* Forma L: aba superior esquerda + base */}
+      <path d="M15,10 L15,140 L145,140 L145,95 L55,95 L55,10 Z" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+      {/* A = altura total (vertical esquerda) */}
+      <line x1={12} y1={10} x2={12} y2={140} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={22} y={80} textAnchor="middle" fontSize={13} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">A</text>
+      {/* B = largura da aba superior */}
+      <line x1={15} y1={8} x2={55} y2={8} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={35} y={20} textAnchor="middle" fontSize={13} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">B</text>
+      {/* C = largura total da base */}
+      <line x1={15} y1={152} x2={145} y2={152} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={80} y={166} textAnchor="middle" fontSize={13} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">C</text>
+      {/* D = altura da base horizontal */}
+      <line x1={148} y1={95} x2={148} y2={140} stroke="var(--purple)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={162} y={120} textAnchor="middle" fontSize={13} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">D</text>
+    </svg>
+  );
+  if(tipo==='T') return (
+    <svg viewBox="0 0 180 180" width={W} height={H} style={{display:'block',margin:'0 auto'}}>
+      {/* Forma T: aba superior + haste vertical */}
+      <path d="M10,10 L150,10 L150,55 L95,55 L95,150 L65,150 L65,55 L10,55 Z" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+      {/* A = largura total do topo */}
+      <line x1={10} y1={7} x2={150} y2={7} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={80} y={20} textAnchor="middle" fontSize={13} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">A</text>
+      {/* B = espessura do topo */}
+      <line x1={152} y1={10} x2={152} y2={55} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={163} y={36} textAnchor="start" fontSize={13} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">B</text>
+      {/* C = altura da haste */}
+      <line x1={152} y1={55} x2={152} y2={150} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={163} y={108} textAnchor="start" fontSize={13} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">C</text>
+      {/* D = largura da haste */}
+      <line x1={65} y1={153} x2={95} y2={153} stroke="var(--purple)" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <text x={80} y={166} textAnchor="middle" fontSize={13} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">D</text>
+    </svg>
+  );
+  return null;
+}
+
+function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, config, pecas }) {
+  const [tipoPeca, setTipoPeca] = useState(null); // null=menu, 'pilar','escada'
+  const [tipoP, setTipoP] = useState('ret');
+  // Campos comuns
+  const [andar, setAndar] = useState('');
+  const [nome, setNome] = useState('');
+  // Pilar
+  const [peDireito, setPeDireito] = useState('');
+  const [altViga, setAltViga] = useState('');
+  const [mA, setMA] = useState('');
+  const [mB, setMB] = useState('');
+  const [mC, setMC] = useState('');
+  const [mD, setMD] = useState('');
+  // Escada
+  const [comprimento, setComprimento] = useState('');
+  const [largura, setLargura] = useState('');
+  const [altLaje, setAltLaje] = useState('');
+
+  const n = v => parseFloat(v)||0;
+
+  function calcVolume() {
+    if(tipoPeca==='pilar') {
+      const pd = n(peDireito) - n(altViga); // altura líquida
+      if(tipoP==='ret') return (n(peDireito) * n(mA) * n(mB)) / 1000000;
+      if(tipoP==='red') return (((Math.PI * n(mA) * n(mA)) / 4) * n(peDireito)) / 1000000;
+      if(tipoP==='L')   return ((n(mA) * (n(mB) - n(mD))) + (n(mC) * n(mD))) * pd / 1000000;
+      if(tipoP==='T')   return ((n(mA) * n(mB)) + (n(mC) * n(mD))) * pd / 1000000;
+    }
+    if(tipoPeca==='rampa') {
+      return (n(comprimento) * n(largura) * n(altLaje)) / 1000000;
+    }
+    return 0;
+  }
+
+  const volume = calcVolume();
+
+  function adicionar() {
+    if(!nome||!andar||volume<=0) return;
+    const nova = {
+      id: 'lev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      nome, andar, tipo: tipoPeca==='pilar'?'Pilar':'Rampa', volume,
+    };
+    setLevantamento(prev=>[...prev, nova]);
+    // Reset campos mantendo andar
+    setNome(''); setMA(''); setMB(''); setMC(''); setMD('');
+    setPeDireito(''); setAltViga(''); setComprimento(''); setLargura(''); setAltLaje('');
+  }
+
+  if(!open) return null;
+  return(
+    <div className={s.modalOverlay} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className={`${s.modal} ${s.modalWide}`}>
+        <div className={s.modalTitle}>📐 Calcular Concreto</div>
+
+        {/* Menu tipo de peça */}
+        {!tipoPeca&&(
+          <div>
+            <div style={{marginBottom:16,fontSize:13,color:'var(--text3)'}}>Selecione o tipo de peça para calcular o volume:</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+              {[
+                {id:'pilar',  icon:'▭', label:'Pilares',  sub:'Retangular, redondo, L ou T'},
+                {id:'rampa', icon:'▤', label:'Rampas',  sub:'Laje inclinada / degraus'},
+              ].map(t=>(
+                <div key={t.id} onClick={()=>setTipoPeca(t.id)} className={s.menuCard} style={{textAlign:'center'}}>
+                  <div style={{fontSize:36,marginBottom:8}}>{t.icon}</div>
+                  <div className={s.menuCardTitle}>{t.label}</div>
+                  <div className={s.menuCardSub}>{t.sub}</div>
+                </div>
+              ))}
+            </div>
+            <div className={s.btnRow}><button className={s.btnSecondary} onClick={onClose}>Fechar</button></div>
+          </div>
+        )}
+
+        {/* PILAR */}
+        {tipoPeca==='pilar'&&(
+          <div>
+            {/* Seletor de tipo de pilar */}
+            <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+              {PILAR_TIPOS.map(t=>(
+                <button key={t.id} onClick={()=>setTipoP(t.id)} style={{
+                  display:'flex',flexDirection:'column',alignItems:'center',gap:4,
+                  padding:'10px 18px',border:`2px solid ${tipoP===t.id?'var(--accent)':'var(--border)'}`,
+                  background:tipoP===t.id?'rgba(245,197,24,0.1)':'var(--surface2)',
+                  color:tipoP===t.id?'var(--accent)':'var(--text2)',cursor:'pointer',borderRadius:'var(--radius-sm)',
+                  fontSize:13,fontWeight:tipoP===t.id?700:500,minWidth:80,
+                }}>
+                  <span style={{fontSize:22}}>{t.icon}</span>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
+              {/* Esquema visual */}
+              <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16}}>
+                <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — {PILAR_TIPOS.find(t=>t.id===tipoP)?.label}</div>
+                <EsquemaPilar tipo={tipoP}/>
+                
+              </div>
+
+              {/* Campos */}
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
+                <div className={s.formGroup}><label className={s.formLabel}>Nome do Pilar</label><input className={s.formInput} placeholder="ex: P-01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel}>Pé Direito [cm]</label><input className={s.formInput} type="number" placeholder="280" value={peDireito} onChange={e=>setPeDireito(e.target.value)}/></div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Medida A [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mA} onChange={e=>setMA(e.target.value)}/></div>
+                  {(tipoP==='ret'||tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Medida B [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mB} onChange={e=>setMB(e.target.value)}/></div>}
+                  {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Medida C [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mC} onChange={e=>setMC(e.target.value)}/></div>}
+                  {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Medida D [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mD} onChange={e=>setMD(e.target.value)}/></div>}
+                </div>
+              </div>
+            </div>
+
+            {/* Resultado */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume calculado</div>
+                <div style={{fontFamily:'var(--mono)',fontSize:28,fontWeight:700,color:volume>0?'var(--accent)':'var(--text3)'}}>{volume>0?volume.toFixed(4):'-'} <span style={{fontSize:14}}>m³</span></div>
+              </div>
+              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>
+                + Adicionar ao Levantamento
+              </button>
+            </div>
+
+            <div className={s.btnRow}>
+              <button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button>
+            </div>
+          </div>
+        )}
+
+        {/* ESCADA */}
+        {tipoPeca==='rampa'&&(
+          <div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
+              <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16}}>
+                <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — Rampa</div>
+                <svg viewBox="0 0 200 160" width={180} height={150} style={{display:'block',margin:'0 auto'}}>
+                  <rect x={20} y={20} width={140} height={100} fill="rgba(59,130,246,0.1)" stroke="var(--accent)" strokeWidth={2} rx={4}/>
+                  {/* Comprimento */}
+                  <line x1={20} y1={130} x2={160} y2={130} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={90} y={145} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
+                  {/* Largura */}
+                  <line x1={168} y1={20} x2={168} y2={120} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={182} y={74} textAnchor="middle" fontSize={12} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,182,74)">Largura</text>
+                  {/* Esp. Laje */}
+                  <text x={90} y={74} textAnchor="middle" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp. Laje</text>
+                </svg>
+
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
+                <div className={s.formGroup}><label className={s.formLabel}>Nome</label><input className={s.formInput} placeholder="ex: Escada 01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Comprimento [cm]</label><input className={s.formInput} type="number" placeholder="300" value={comprimento} onChange={e=>setComprimento(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={largura} onChange={e=>setLargura(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Espessura da Laje [cm]</label><input className={s.formInput} type="number" placeholder="15" value={altLaje} onChange={e=>setAltLaje(e.target.value)}/></div>
+              </div>
+            </div>
+
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume calculado</div>
+                <div style={{fontFamily:'var(--mono)',fontSize:28,fontWeight:700,color:volume>0?'var(--accent)':'var(--text3)'}}>{volume>0?volume.toFixed(4):'-'} <span style={{fontSize:14}}>m³</span></div>
+              </div>
+              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>
+                + Adicionar ao Levantamento
+              </button>
+            </div>
+            <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button></div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// MODAL: LEVANTAMENTO DE CONCRETO
+// ════════════════════════════════════════════════
+function ModalLevantamento({ open, onClose, levantamento, setLevantamento, onEnviarBase }) {
+  const [filtroTipo,  setFiltroTipo]  = useState('todos');
+  const [filtroAndar, setFiltroAndar] = useState('todos');
+  const [selecionados, setSelecionados] = useState(new Set());
+
+  const tipos   = ['todos',...new Set(levantamento.map(p=>p.tipo))];
+  const andares = ['todos',...new Set(levantamento.map(p=>p.andar))].sort();
+
+  const filtrado = levantamento.filter(p=>
+    (filtroTipo==='todos'||p.tipo===filtroTipo)&&
+    (filtroAndar==='todos'||p.andar===filtroAndar)
+  );
+
+  function toggleSel(id) {
+    setSelecionados(prev=>{ const n=new Set(prev); n.has(id)?n.delete(id):n.add(id); return n; });
+  }
+
+  function remover(id) {
+    setLevantamento(prev=>prev.filter(p=>p.id!==id));
+    setSelecionados(prev=>{ const n=new Set(prev); n.delete(id); return n; });
+  }
+
+  function enviarSelecionados() {
+    const itens = levantamento.filter(p=>selecionados.has(p.id));
+    if(!itens.length){alert('Selecione pelo menos uma peça');return;}
+    onEnviarBase(itens);
+    setSelecionados(new Set());
+  }
+
+  if(!open) return null;
+  return(
+    <div className={s.modalOverlay} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className={`${s.modal} ${s.modalExtraWide}`}>
+        <div className={s.modalTitle}>📋 Levantamento de Concreto
+          <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',fontWeight:400,marginLeft:8}}>{levantamento.length} peças</span>
+        </div>
+
+        {/* Filtros */}
+        <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <select className={s.formSelect} style={{minWidth:140}} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}>
+            {tipos.map(t=><option key={t} value={t}>{t==='todos'?'Todos os tipos':t}</option>)}
+          </select>
+          <select className={s.formSelect} style={{minWidth:160}} value={filtroAndar} onChange={e=>setFiltroAndar(e.target.value)}>
+            {andares.map(a=><option key={a} value={a}>{a==='todos'?'Todos os andares':a}</option>)}
+          </select>
+          <span style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginLeft:'auto'}}>
+            {selecionados.size} selecionada{selecionados.size!==1?'s':''}
+          </span>
+          <button className={s.btnPrimary} disabled={!selecionados.size} onClick={enviarSelecionados} style={{padding:'9px 18px'}}>
+            → Enviar para Base de Peças
+          </button>
+        </div>
+
+        {levantamento.length===0
+          ?<div className={s.empty}>Nenhuma peça no levantamento.<br/>Use "Calcular Concreto" para adicionar.</div>
+          :<div style={{maxHeight:440,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)'}}>
+            <table className={s.table} style={{tableLayout:'fixed',width:'100%'}}>
+              <thead><tr>
+                <th style={{width:36}}>
+                  <input type="checkbox" onChange={e=>{
+                    if(e.target.checked) setSelecionados(new Set(filtrado.map(p=>p.id)));
+                    else setSelecionados(new Set());
+                  }} checked={filtrado.length>0&&filtrado.every(p=>selecionados.has(p.id))}/>
+                </th>
+                <th>Nome</th><th>Tipo</th><th>Andar</th><th style={{textAlign:'right'}}>Volume (m³)</th><th style={{width:40}}></th>
+              </tr></thead>
+              <tbody>
+                {filtrado.map(p=>(
+                  <tr key={p.id}>
+                    <td><input type="checkbox" checked={selecionados.has(p.id)} onChange={()=>toggleSel(p.id)}/></td>
+                    <td style={{fontWeight:600}}>{p.nome}</td>
+                    <td className={s.tdMono}>{p.tipo}</td>
+                    <td className={s.tdMono}>{p.andar}</td>
+                    <td className={s.tdAccent} style={{textAlign:'right'}}>{p.volume.toFixed(4)}</td>
+                    <td><button className={s.btnDanger} onClick={()=>remover(p.id)} style={{padding:'3px 8px'}}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
+
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:14}}>
+          <span style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>
+            Total: {fmt4(filtrado.reduce((s,p)=>s+p.volume,0))} m³
+          </span>
+          <button className={s.btnSecondary} onClick={onClose}>Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ════════════════════════════════════════════════
 // PÁGINA PRINCIPAL
 // ════════════════════════════════════════════════
@@ -1231,6 +2190,10 @@ export default function Home() {
   const [modalConc,setModalConc]=useState(false);
   const [modalBT,setModalBT]=useState(false);
   const [modalConfig,setModalConfig]=useState(false);
+  const [modalCalc,setModalCalc]=useState(false);
+  const [modalLevantamento,setModalLevantamento]=useState(false);
+  const [levantamento,setLevantamento]=useState([]);
+  const [modalCalcConc,setModalCalcConc]=useState(false);
   const {data,loading,error,refresh}=useData();
   const {pecas,concretagens,pecaConc,btsConfig,lancamentos}=data;
   const [config, salvarConfig] = useConfigObra();
@@ -1250,8 +2213,15 @@ export default function Home() {
   const ordemAndares = config.ordemAndares||[];
   const andares = ordenarAndares([...new Set(pecas.map(p=>p.andar))], ordemAndares);
   const tipos   = [...new Set(pecas.map(p=>p.tipo))].sort();
-  const kpis    = calcKPIs(pecas,lancamentos,btsConfig,filtroAndar);
+  // Filtrar peças pelo filtroConc para KPIs
+  const pecasParaKPI = filtroConc==='todas' ? pecas :
+    pecas.filter(p=>pecaConc.filter(pc=>pc.concretagemId===filtroConc).map(pc=>pc.pecaId).includes(p.id));
+  const btsParaKPI = filtroConc==='todas' ? btsConfig : btsConfig.filter(b=>b.concretagemId===filtroConc);
+  const lansParaKPI = filtroConc==='todas' ? lancamentos : lancamentos.filter(l=>l.concretagemId===filtroConc);
+  const kpis    = calcKPIs(pecasParaKPI,lansParaKPI,btsParaKPI,filtroAndar);
   const perdaInfo = kpis.perdaInfo;
+  // Usar lancamentos filtrados para progresso por tipo
+  const lancamentosOp = filtroConc==='todas' ? lancamentos : lancamentos.filter(l=>l.concretagemId===filtroConc);
 
   const pecasFiltOp=pecas.filter(p=>
     (filtroAndar==='todos'||p.andar===filtroAndar)&&
@@ -1284,12 +2254,22 @@ export default function Home() {
         </div>
 
         <nav className={s.sidebarNav}>
+          <div style={{padding:'8px 20px 4px',fontSize:10,fontWeight:700,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Principal</div>
           <button className={`${s.sidebarItem} ${tab==='operacional'?s.sidebarItemActive:''}`} onClick={()=>setTab('operacional')}>
             <span className={s.sidebarItemIcon}>⬡</span> Operacional
           </button>
           <button className={`${s.sidebarItem} ${tab==='relatorios'?s.sidebarItemActive:''}`} onClick={()=>setTab('relatorios')}>
             <span className={s.sidebarItemIcon}>📊</span> Relatórios
           </button>
+          <div style={{padding:'16px 20px 4px',fontSize:10,fontWeight:700,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Levantamento</div>
+          <button className={s.sidebarItem} onClick={()=>setModalCalc(true)}>
+            <span className={s.sidebarItemIcon}>📐</span> Calcular Concreto
+          </button>
+          <button className={s.sidebarItem} onClick={()=>setModalLevantamento(true)}>
+            <span className={s.sidebarItemIcon}>📋</span> Levantamento
+            {levantamento.length>0&&<span style={{marginLeft:'auto',background:'var(--accent)',color:'#111',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:10}}>{levantamento.length}</span>}
+          </button>
+          <div style={{padding:'16px 20px 4px',fontSize:10,fontWeight:700,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Sistema</div>
           <button className={s.sidebarItem} onClick={()=>setModalConfig(true)}>
             <span className={s.sidebarItemIcon}>⚙</span> Configurações
           </button>
@@ -1334,8 +2314,8 @@ export default function Home() {
               {[
                 {label:'Volume Total do Projeto', value:fmt4(kpis.totalVol), unit:'m³', sub:`${pecas.length} peças cadastradas`, icon:'📦', v:''},
                 {label:'Volume Real Concretado',  value:fmt4(kpis.concVol),  unit:'m³', sub:`${fmt1(kpis.pctConc)}% do projeto`,   icon:'✅', v:'green'},
-                {label:'Faltando (Projeto)',      value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs executadas', icon:'📊', v:'blue'},
                 {label:'Faltando (Real)',         value:fmt4(kpis.realFaltando), unit:'m³', sub:'proj. − real concretado', icon:'⚠️', v:'red'},
+                {label:'Faltando (Projeto)',      value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs executadas', icon:'📊', v:'blue'},
                 {label:'Índice de Perda',         value:fmt1(perdaInfo.indice),  unit:'%',  sub:`média por BT · ${fmt4(perdaInfo.perdaTotal)} m³`, icon:'📉', v:'orange'},
               ].map((k,i)=>(
                 <div key={i} className={`${s.kpi} ${k.v==='green'?s.kpiGreen:k.v==='red'?s.kpiRed:k.v==='blue'?s.kpiBlue:k.v==='orange'?s.kpiOrange:''}`}>
@@ -1386,7 +2366,7 @@ export default function Home() {
                 <div className={s.panelTitle}>Progresso por Tipo
                   <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--text3)',fontWeight:400,marginLeft:6}}>▼ clique para ver peças</span>
                 </div>
-                <GraficoTipos pecas={pecasFiltOp} lancamentos={lancamentos}/>
+                <GraficoTipos pecas={pecasFiltOp} lancamentos={lancamentosOp}/>
               </div>
 
               {/* Última BT + Status BTs */}
@@ -1422,7 +2402,23 @@ export default function Home() {
 
                 <div className={s.panel}>
                   <div className={s.panelTitle}>Status das BTs por Concretagem</div>
-                  <GraficoBTs btsConfig={btsConfig} lancamentos={lancamentos} concretagens={concretagens}/>
+                  <GraficoBTs
+                    btsConfig={filtroConc!=='todas' ? btsConfig.filter(b=>b.concretagemId===filtroConc) :
+                      filtroAndar!=='todos' ? btsConfig.filter(b=>{
+                        const ids=pecaConc.filter(pc=>pc.concretagemId===b.concretagemId).map(pc=>pc.pecaId);
+                        return pecas.some(p=>ids.includes(p.id)&&p.andar===filtroAndar);
+                      }) : btsConfig}
+                    lancamentos={filtroConc!=='todas' ? lancamentos.filter(l=>l.concretagemId===filtroConc) :
+                      filtroAndar!=='todos' ? lancamentos.filter(l=>{
+                        const p=pecas.find(p=>p.id===l.pecaId);
+                        return p&&p.andar===filtroAndar;
+                      }) : lancamentos}
+                    concretagens={filtroConc!=='todas' ? concretagens.filter(c=>c.id===filtroConc) :
+                      filtroAndar!=='todos' ? concretagens.filter(c=>{
+                        const ids=pecaConc.filter(pc=>pc.concretagemId===c.id).map(pc=>pc.pecaId);
+                        return pecas.some(p=>ids.includes(p.id)&&p.andar===filtroAndar);
+                      }) : concretagens}
+                  />
                 </div>
               </div>
             </div>
@@ -1458,7 +2454,13 @@ export default function Home() {
 
             {(()=>{
               let lans=lancamentos, pcs=pecas, bts=btsConfig;
-              if(filtroRelConc!=='todas'){lans=lans.filter(l=>l.concretagemId===filtroRelConc);bts=bts.filter(b=>b.concretagemId===filtroRelConc);}
+              if(filtroRelConc!=='todas'){
+                lans=lans.filter(l=>l.concretagemId===filtroRelConc);
+                bts=bts.filter(b=>b.concretagemId===filtroRelConc);
+                // Filtrar peças vinculadas a esta concretagem
+                const pecaIdsConc=pecaConc.filter(pc=>pc.concretagemId===filtroRelConc).map(pc=>pc.pecaId);
+                pcs=pcs.filter(p=>pecaIdsConc.includes(p.id));
+              }
               if(filtroRelAndar!=='todos') pcs=pcs.filter(p=>p.andar===filtroRelAndar);
               const pids=new Set(pcs.map(p=>p.id));lans=lans.filter(l=>pids.has(l.pecaId));
               const relProg=pcs.reduce((s,p)=>s+p.volume,0);
@@ -1574,7 +2576,23 @@ export default function Home() {
         )}
       </div>
 
+        {/* ══ CALCULAR CONCRETO ══ */}
+        {tab==='calcular'&&<PageCalcularConcreto andares={[...new Set(pecas.map(p=>p.andar))].sort()} onRefresh={refresh}/>}
+
+        {/* ══ LEVANTAMENTO ══ */}
+        {tab==='levantamento'&&<PageLevantamento pecas={pecas} onEnviar={msg=>showToast(msg,'ok')}/>}
+
       {/* MODAIS */}
+      <ModalCalcConcreto open={modalCalc} onClose={()=>setModalCalc(false)} levantamento={levantamento} setLevantamento={setLevantamento} config={config} pecas={pecas}/>
+      <ModalLevantamento open={modalLevantamento} onClose={()=>setModalLevantamento(false)} levantamento={levantamento} setLevantamento={setLevantamento}
+        onEnviarBase={async(itens)=>{
+          try{
+            const {apiAdicionarPecaLote}=await import('../lib/api');
+            await apiAdicionarPecaLote(itens);
+            showToast('✓ '+itens.length+' peças enviadas para a base!','ok');
+            setModalLevantamento(false);
+          }catch(e){showToast('Erro: '+e.message,'err');}
+        }}/>
       <ModalPecas       open={modalPecas}  onClose={()=>setModalPecas(false)}  pecas={pecas} onSalvo={msg=>showToast(msg,'ok')}/>
       <ModalConcretagem open={modalConc}   onClose={()=>setModalConc(false)}   pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} onSalvo={msg=>showToast(msg,'ok')}/>
       <ModalLancarBT    open={modalBT}     onClose={()=>setModalBT(false)}     pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} lancamentos={lancamentos} onSalvo={msg=>showToast(msg,'ok')}/>
