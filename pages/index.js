@@ -697,7 +697,6 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
           <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
             <input className={s.formInput} style={{flex:1,minWidth:160}} placeholder="Buscar peça..." value={filtro} onChange={e=>setFiltro(e.target.value)}/>
             <button className={s.btnAction} onClick={abrirNova}>+ Nova</button>
-            <button className={s.btnAction} onClick={()=>{setModo('buscar');setBuscaNome('');setBuscaSel(null);}}>🔍 Buscar Peça</button>
             <button className={s.btnAction} onClick={()=>{setModo('importar');setTextoImport('');setPreviewImport([]);setErroImport('');}}>⊞ Importar Lote</button>
           </div>
           {erro&&<div className={s.alertRed} style={{marginBottom:10}}>{erro}</div>}
@@ -716,70 +715,6 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
         </div>
       )}
 
-      {modo==='buscar'&&(
-        <div>
-          <div style={{marginBottom:16}}>
-            <label className={s.formLabel} style={{display:'block',marginBottom:8}}>Nome da Peça</label>
-            <input className={s.formInput} placeholder="ex: Pilar P-01, V201..." autoFocus
-              value={buscaNome} onChange={e=>{setBuscaNome(e.target.value);setBuscaSel(null);}}/>
-          </div>
-          {buscaNome.length>=2&&(()=>{
-            const termo = buscaNome.toLowerCase();
-            // Busca por nome mais próximo
-            const resultado = pecas
-              .filter(p=>p.nome.toLowerCase().includes(termo))
-              .reduce((acc,p)=>{
-                // Agrupa por nome base (ignora o andar)
-                const chave = p.nome;
-                if(!acc[chave]) acc[chave]=[];
-                acc[chave].push(p);
-                return acc;
-              },{});
-            const grupos = Object.entries(resultado).slice(0,10);
-            if(!grupos.length) return <div className={s.empty}>Nenhuma peça encontrada com "{buscaNome}"</div>;
-            return(
-              <div>
-                <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:10}}>{grupos.length} peça(s) encontrada(s)</div>
-                <div style={{maxHeight:200,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',marginBottom:16}}>
-                  {grupos.map(([nome,pecasGrupo])=>(
-                    <button key={nome} onClick={()=>setBuscaSel(nome)}
-                      style={{display:'block',width:'100%',textAlign:'left',padding:'12px 16px',border:'none',
-                        borderBottom:'1px solid var(--border)',
-                        background:buscaSel===nome?'rgba(245,197,24,0.1)':'transparent',
-                        color:buscaSel===nome?'var(--accent)':'var(--text)',
-                        fontSize:14,fontWeight:buscaSel===nome?700:500,cursor:'pointer'}}>
-                      {nome}
-                      <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginLeft:8}}>
-                        {pecasGrupo.length} andar{pecasGrupo.length!==1?'es':''}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                {buscaSel&&(()=>{
-                  const pecasSel = pecas.filter(p=>p.nome===buscaSel);
-                  return(
-                    <div style={{border:'1px solid var(--accent)',borderRadius:'var(--radius-sm)',overflow:'hidden'}}>
-                      <div style={{padding:'10px 16px',background:'rgba(245,197,24,0.08)',borderBottom:'1px solid var(--border)',fontWeight:700,fontSize:14,color:'var(--accent)'}}>{buscaSel}</div>
-                      {pecasSel.map(p=>{
-                        const vc = volLancadoPeca ? 0 : 0; // será calculado no contexto pai
-                        return(
-                          <div key={p.id} style={{display:'grid',gridTemplateColumns:'1fr 100px 100px 80px',gap:12,padding:'12px 16px',borderBottom:'1px solid var(--border)',alignItems:'center'}}>
-                            <div><div style={{fontSize:14,fontWeight:600}}>{p.andar}</div><div style={{fontSize:11,color:'var(--text3)'}}>{p.tipo}</div></div>
-                            <div><div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:2}}>Projeto</div><div style={{fontFamily:'var(--mono)',fontSize:13,fontWeight:700}}>{fmt4(p.volume)} m³</div></div>
-                            <div><div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:2}}>Tipo</div><div style={{fontFamily:'var(--mono)',fontSize:12}}>{p.tipo}</div></div>
-                            <div style={{textAlign:'right'}}><span style={{fontSize:11,background:'rgba(245,197,24,0.1)',color:'var(--accent)',padding:'3px 8px',borderRadius:10,fontWeight:600}}>vol: {fmt4(p.volume)}</span></div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
-              </div>
-            );
-          })()}
-          <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setModo('lista')}>← Voltar</button></div>
-        </div>
-      )}
 
       {(modo==='nova'||modo==='editar')&&(
         <div>
@@ -1330,20 +1265,24 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
               <div>
                 {/* Filtro por tipo de peça */}
                 {(()=>{
-                  const ORDEM=['todos','Pilar','Viga','Laje','Escada','Rampa','Fundação','Cortina','Outro'];
-                  const tiposDisp=['todos',...ORDEM.filter(t=>t!=='todos'&&(pecasConc.length>0?pecasConc:pecas).some(p=>p.tipo===t))];
-                  return tiposDisp.length>2?(
-                    <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap'}}>
+                  const ORDEM_T=['todos','Pilar','Viga','Laje','Escada','Rampa','Fundação','Cortina','Outro'];
+                  const lista = pecasConc.length>0?pecasConc:pecas;
+                  const tiposDisp=['todos',...ORDEM_T.filter(t=>t!=='todos'&&lista.some(p=>p.tipo===t)),
+                    ...lista.map(p=>p.tipo).filter(t=>!ORDEM_T.includes(t)).filter((t,i,a)=>a.indexOf(t)===i)];
+                  if(tiposDisp.length<=1) return null;
+                  return(
+                    <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap',paddingBottom:10,borderBottom:'1px solid var(--border)'}}>
+                      <span style={{fontSize:11,color:'var(--text3)',alignSelf:'center',marginRight:4,fontWeight:600,textTransform:'uppercase',letterSpacing:1}}>Tipo:</span>
                       {tiposDisp.map(t=>(
                         <button key={t} onClick={()=>setFiltroTipoBT(t)} style={{
-                          padding:'5px 14px',borderRadius:20,border:'1px solid',fontSize:12,fontWeight:600,cursor:'pointer',
+                          padding:'5px 14px',borderRadius:20,border:'1px solid',fontSize:12,fontWeight:600,cursor:'pointer',transition:'all 0.15s',
                           background:filtroTipoBT===t?'var(--accent)':'transparent',
                           color:filtroTipoBT===t?'#111':'var(--text3)',
                           borderColor:filtroTipoBT===t?'var(--accent)':'var(--border)',
-                        }}>{t==='todos'?'Todos os tipos':t}</button>
+                        }}>{t==='todos'?'Todos':t}</button>
                       ))}
                     </div>
-                  ):null;
+                  );
                 })()}
 
                 <div className={s.btResumo}>
