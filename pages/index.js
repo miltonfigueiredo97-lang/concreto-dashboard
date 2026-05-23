@@ -1,4 +1,4 @@
-// v1779557240
+// v1779558728
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -2066,15 +2066,21 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
             {rowBtn('Laje Inclinada','laje',volLajeInc)}
             {abaEscada==='laje'&&(
               <div style={{border:'1px solid var(--accent)',borderTop:'none',borderRadius:'0 0 var(--radius-sm) var(--radius-sm)',padding:14,marginBottom:8,marginTop:-8}}>
-                <div style={{display:'grid',gridTemplateColumns:'160px 1fr',gap:16,marginBottom:12}}>
+                <div style={{display:'grid',gridTemplateColumns:'220px 1fr',gap:16,marginBottom:12}}>
                   <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:10}}>
-                    <svg viewBox="0 0 160 100" width="100%" style={{display:'block'}}>
-                      <polygon points="10,85 140,30 140,42 10,97" fill="rgba(245,197,24,0.15)" stroke="var(--accent)" strokeWidth={2}/>
-                      <line x1={10} y1={90} x2={140} y2={90} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                      <text x={75} y={99} textAnchor="middle" fontSize={9} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento inclinado</text>
-                      <line x1={147} y1={30} x2={147} y2={42} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                      <text x={157} y={38} textAnchor="start" fontSize={9} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">E</text>
-                      <text x={55} y={55} textAnchor="middle" fontSize={9} fill="var(--green)" fontFamily="sans-serif">Largura</text>
+                    <svg viewBox="0 0 280 160" width="100%" style={{display:'block'}}>
+                      {/* Laje inclinada — vista lateral */}
+                      <polygon points="20,130 240,50 240,68 20,148" fill="rgba(245,197,24,0.18)" stroke="var(--accent)" strokeWidth={2.5}/>
+                      {/* Cota comprimento inclinado — ao longo da laje */}
+                      <line x1={20} y1={139} x2={240} y2={59} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="5,3"/>
+                      <text x={130} y={105} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(-18,130,105)">Comp. inclinado</text>
+                      {/* Cota E — perpendicular à superfície */}
+                      <line x1={240} y1={50} x2={240} y2={68} stroke="var(--red)" strokeWidth={2}/>
+                      <line x1={235} y1={50} x2={245} y2={50} stroke="var(--red)" strokeWidth={1.5}/>
+                      <line x1={235} y1={68} x2={245} y2={68} stroke="var(--red)" strokeWidth={1.5}/>
+                      <text x={256} y={62} textAnchor="start" fontSize={13} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">E</text>
+                      {/* Largura — indicação de profundidade */}
+                      <text x={80} y={148} textAnchor="middle" fontSize={11} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">Largura →</text>
                     </svg>
                   </div>
                   <div style={{fontSize:12,color:'var(--text3)',lineHeight:1.8}}>
@@ -2104,15 +2110,29 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
             {rowBtn('Patamares','patamar',volPatamares)}
             {abaEscada==='patamar'&&(
               <div style={{border:'1px solid var(--accent)',borderTop:'none',borderRadius:'0 0 var(--radius-sm) var(--radius-sm)',padding:14,marginBottom:8,marginTop:-8}}>
-                <div style={{display:'grid',gridTemplateColumns:'160px 1fr',gap:16,marginBottom:12}}>
+                <div style={{display:'grid',gridTemplateColumns:'220px 1fr',gap:16,marginBottom:12}}>
                   <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:10}}>
-                    <svg viewBox="0 0 160 90" width="100%" style={{display:'block'}}>
-                      <rect x={10} y={10} width={130} height={55} fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2} rx={3}/>
-                      <line x1={10} y1={73} x2={140} y2={73} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                      <text x={75} y={82} textAnchor="middle" fontSize={9} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
-                      <line x1={147} y1={10} x2={147} y2={65} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                      <text x={156} y={40} textAnchor="middle" fontSize={9} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,156,40)">Largura</text>
-                      <text x={75} y={40} textAnchor="middle" fontSize={10} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">E</text>
+                    <svg viewBox="0 0 280 150" width="100%" style={{display:'block'}}>
+                      {/* Patamar — vista 3D simplificada */}
+                      {/* Face frontal */}
+                      <rect x={20} y={50} width={200} height={70} fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2.5}/>
+                      {/* Face superior (perspectiva) */}
+                      <polygon points="20,50 60,20 260,20 220,50" fill="rgba(59,130,246,0.08)" stroke="var(--accent)" strokeWidth={2}/>
+                      {/* Face lateral direita */}
+                      <polygon points="220,50 260,20 260,50 220,80" fill="rgba(59,130,246,0.05)" stroke="var(--accent)" strokeWidth={1.5}/>
+                      {/* Cota Comprimento — base frontal */}
+                      <line x1={20} y1={130} x2={220} y2={130} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="5,3"/>
+                      <line x1={20} y1={125} x2={20} y2={135} stroke="var(--blue)" strokeWidth={1.5}/>
+                      <line x1={220} y1={125} x2={220} y2={135} stroke="var(--blue)" strokeWidth={1.5}/>
+                      <text x={120} y={145} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
+                      {/* Cota E — espessura frontal */}
+                      <line x1={5} y1={50} x2={5} y2={120} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="5,3"/>
+                      <line x1={1} y1={50} x2={9} y2={50} stroke="var(--red)" strokeWidth={1.5}/>
+                      <line x1={1} y1={120} x2={9} y2={120} stroke="var(--red)" strokeWidth={1.5}/>
+                      <text x={14} y={90} textAnchor="start" fontSize={13} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">E</text>
+                      {/* Cota Largura — profundidade */}
+                      <line x1={220} y1={50} x2={260} y2={20} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="5,3"/>
+                      <text x={248} y={30} textAnchor="start" fontSize={11} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">Larg.</text>
                     </svg>
                   </div>
                   <div style={{fontSize:12,color:'var(--text3)',lineHeight:1.8}}>
@@ -2141,16 +2161,29 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
             {rowBtn('Degraus','degrau',volDegraus)}
             {abaEscada==='degrau'&&(
               <div style={{border:'1px solid var(--accent)',borderTop:'none',borderRadius:'0 0 var(--radius-sm) var(--radius-sm)',padding:14,marginBottom:8,marginTop:-8}}>
-                <div style={{display:'grid',gridTemplateColumns:'160px 1fr',gap:16,marginBottom:12}}>
+                <div style={{display:'grid',gridTemplateColumns:'220px 1fr',gap:16,marginBottom:12}}>
                   <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:10}}>
-                    <svg viewBox="0 0 160 120" width="100%" style={{display:'block'}}>
-                      <polygon points="10,100 50,100 50,72 90,72 90,44 130,44 130,16 90,16 90,44 50,44 50,72 10,72" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
-                      <line x1={10} y1={108} x2={50} y2={108} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                      <text x={30} y={118} textAnchor="middle" fontSize={8} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Pisada (P)</text>
-                      <line x1={4} y1={72} x2={4} y2={100} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                      <text x={3} y={88} textAnchor="middle" fontSize={8} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(-90,3,88)">Espelho (E)</text>
-                      <text x={110} y={34} textAnchor="middle" fontSize={8} fill="var(--purple)" fontFamily="sans-serif">Larg.</text>
-                      <text x={85} y={112} textAnchor="middle" fontSize={7} fill="var(--text3)" fontFamily="sans-serif">V = P×E/2 × Larg × N</text>
+                    <svg viewBox="0 0 280 200" width="100%" style={{display:'block'}}>
+                      {/* 3 degraus em vista lateral */}
+                      <polygon points="20,170 90,170 90,127 160,127 160,84 230,84 230,55 160,55 160,84 90,84 90,127 20,127" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2.5}/>
+                      {/* Triângulo do degrau preenchido — mostra o volume */}
+                      <polygon points="20,170 90,170 90,127" fill="rgba(245,197,24,0.2)" stroke="var(--accent)" strokeWidth={1} strokeDasharray="4,2"/>
+                      {/* Cota Pisada — horizontal do degrau inferior */}
+                      <line x1={20} y1={180} x2={90} y2={180} stroke="var(--blue)" strokeWidth={1.5}/>
+                      <line x1={20} y1={175} x2={20} y2={185} stroke="var(--blue)" strokeWidth={1.5}/>
+                      <line x1={90} y1={175} x2={90} y2={185} stroke="var(--blue)" strokeWidth={1.5}/>
+                      <text x={55} y={195} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Pisada (P)</text>
+                      {/* Cota Espelho — vertical do degrau */}
+                      <line x1={8} y1={127} x2={8} y2={170} stroke="var(--green)" strokeWidth={1.5}/>
+                      <line x1={3} y1={127} x2={13} y2={127} stroke="var(--green)" strokeWidth={1.5}/>
+                      <line x1={3} y1={170} x2={13} y2={170} stroke="var(--green)" strokeWidth={1.5}/>
+                      <text x={18} y={152} textAnchor="start" fontSize={11} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">Espelho (E)</text>
+                      {/* Linha indicando N degraus */}
+                      <line x1={20} y1={170} x2={230} y2={55} stroke="var(--purple)" strokeWidth={1.5} strokeDasharray="6,3" opacity={0.7}/>
+                      <text x={145} y={48} textAnchor="middle" fontSize={11} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">N degraus</text>
+                      {/* Largura */}
+                      <text x={240} y={75} textAnchor="start" fontSize={11} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Larg.</text>
+                      <text x={100} y={175} textAnchor="middle" fontSize={9} fill="var(--text3)" fontFamily="sans-serif">V = P × E / 2 × Larg × N</text>
                     </svg>
                   </div>
                   <div style={{fontSize:12,color:'var(--text3)',lineHeight:1.8}}>
