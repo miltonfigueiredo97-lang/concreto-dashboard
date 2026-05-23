@@ -1,4 +1,4 @@
-// v1779541358
+// v1779541507
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -2296,6 +2296,7 @@ export default function Home() {
   const [clock,setClock]=useState('');
 
   useEffect(()=>{ const t=()=>setClock(new Date().toLocaleTimeString('pt-BR')); t(); const id=setInterval(t,1000); return()=>clearInterval(id); },[]);
+  useEffect(()=>{ if(tab==='calcular'){setModalCalc(true);setTab('operacional');} },[tab]);
   const showToast=(msg,tipo='ok')=>{setToast({msg,tipo});setTimeout(()=>refresh(),1500);};
 
   const ordemAndares = config.ordemAndares||[];
@@ -2670,7 +2671,7 @@ export default function Home() {
       </div>
 
         {/* ══ CALCULAR CONCRETO ══ */}
-        {tab==='calcular'&&<PageCalcularConcreto andares={[...new Set(pecas.map(p=>p.andar))].sort()} onRefresh={refresh}/>}
+
 
         {/* ══ LEVANTAMENTO ══ */}
         {tab==='levantamento'&&<PageLevantamento pecas={pecas} onEnviar={msg=>showToast(msg,'ok')}/>}
