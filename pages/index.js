@@ -1096,7 +1096,6 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
     setErro('');
     const linhasVal=linhas.filter(l=>l.pecaId&&parseFloat(l.pct)>0);
     if(!concId||!btId){setErro('Selecione concretagem e BT');return;}
-    if(!linhasVal.length){setErro('Adicione ao menos 1 peça');return;}
     setSalvando(true);
     try{
       await apiLancarBT({btConfigId:btId,concretagemId:concId,linhas:linhasVal,
@@ -1322,7 +1321,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                 {totalUsado>volPrevisto&&<div className={s.alertBlue} style={{marginTop:10}}>ℹ Volume acima do previsto — sobra inesperada de {fmt4(totalUsado-volPrevisto)} m³.</div>}
                 <div className={s.btnRow}>
                   <button className={s.btnSecondary} onClick={()=>setStep(1)}>← Voltar</button>
-                  <button className={s.btnPrimary} onClick={()=>{const v=linhas.filter(l=>l.pecaId&&parseFloat(l.pct)>0);if(!v.length){setErro('Adicione ao menos 1 peça');return;}setErro('');setStep(3);}}>Próximo →</button>
+                  <button className={s.btnPrimary} onClick={()=>{setErro('');setStep(3);}}>Próximo →</button>
                 </div>
               </div>
             )}
@@ -1558,7 +1557,8 @@ function PageCalcularConcreto({ andares, onRefresh }) {
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:12,maxWidth:600}}>
           {[
             {id:'pilar',  icon:'⬛', label:'Pilar',   sub:'Ret, Redondo, L, T'},
-            {id:'rampa', icon:'⟋',  label:'Rampa',   sub:'Comprimento × Largura × Esp. Laje'},
+            {id:'rampa',   icon:'⟋',  label:'Rampa',   sub:'Comprimento × Largura × Esp. Laje'},
+            {id:'escada',  icon:'🪜',  label:'Escada',  sub:'Patamares + Degraus (pisada × espelho × largura)'},
           ].map(t=>(
             <div key={t.id} className={s.menuCard} onClick={()=>setTipoFeature(t.id)} style={{textAlign:'center',padding:'28px 16px'}}>
               <div style={{fontSize:36,marginBottom:10}}>{t.icon}</div>
@@ -1891,6 +1891,9 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
   const [comprimento, setComprimento] = useState('');
   const [largura, setLargura] = useState('');
   const [altLaje, setAltLaje] = useState('');
+  // Escada
+  const [patamares, setPatamares] = useState([{comp:'',larg:'',esp:''}]);
+  const [degraus, setDegraus] = useState([{pisada:'',espelho:'',largura:'',qtd:''}]);
 
   const n = v => parseFloat(v)||0;
 
@@ -1905,6 +1908,18 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
     if(tipoPeca==='rampa') {
       return (n(comprimento) * n(largura) * n(altLaje)) / 1000000;
     }
+    if(tipoPeca==='escada') {
+      const volPatamares = patamares.reduce((s,p) => {
+        const v = (n(p.comp) * n(p.larg) * n(p.esp)) / 1000000;
+        return s + v;
+      }, 0);
+      const volDegraus = degraus.reduce((s,d) => {
+        // Volume real do degrau = triângulo (pisada × espelho / 2) × largura × qtd
+        const v = (n(d.pisada) * n(d.espelho) / 2 * n(d.largura) * n(d.qtd)) / 1000000;
+        return s + v;
+      }, 0);
+      return volPatamares + volDegraus;
+    }
     return 0;
   }
 
@@ -1914,7 +1929,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
     if(!nome||!andar||volume<=0) return;
     const nova = {
       id: 'lev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      nome, andar, tipo: tipoPeca==='pilar'?'Pilar':'Rampa', volume,
+      nome, andar, tipo: tipoPeca==='pilar'?'Pilar':tipoPeca==='escada'?'Escada':'Rampa', volume,
     };
     setLevantamento(prev=>[...prev, nova]);
     // Reset campos mantendo andar
@@ -2037,6 +2052,114 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
               <div>
                 <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume calculado</div>
+                <div style={{fontFamily:'var(--mono)',fontSize:28,fontWeight:700,color:volume>0?'var(--accent)':'var(--text3)'}}>{volume>0?volume.toFixed(4):'-'} <span style={{fontSize:14}}>m³</span></div>
+              </div>
+              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>
+                + Adicionar ao Levantamento
+              </button>
+            </div>
+            <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button></div>
+          </div>
+        )}
+
+        {/* ESCADA */}
+        {tipoPeca==='escada'&&(
+          <div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
+
+              {/* Esquemas visuais lado a lado */}
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+
+                {/* Esquema Patamar */}
+                <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:14}}>
+                  <div style={{fontSize:11,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Patamar</div>
+                  <svg viewBox="0 0 200 100" width="100%" style={{display:'block'}}>
+                    <rect x={20} y={15} width={160} height={60} fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2} rx={3}/>
+                    <line x1={20} y1={84} x2={180} y2={84} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                    <text x={100} y={96} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
+                    <line x1={185} y1={15} x2={185} y2={75} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                    <text x={196} y={48} textAnchor="middle" fontSize={11} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,196,48)">Largura</text>
+                    <text x={100} y={48} textAnchor="middle" fontSize={11} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp.</text>
+                  </svg>
+                </div>
+
+                {/* Esquema Degrau 3D */}
+                <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:14}}>
+                  <div style={{fontSize:11,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Degraus (vista 3D)</div>
+                  <svg viewBox="0 0 220 140" width="100%" style={{display:'block'}}>
+                    {/* Degrau 1 (fundo) */}
+                    <polygon points="20,110 80,110 80,75 140,75 140,40 200,40 200,20 140,20 140,55 80,55 80,90 20,90" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+                    {/* Pisada — horizontal */}
+                    <line x1={20} y1={120} x2={80} y2={120} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                    <text x={50} y={134} textAnchor="middle" fontSize={10} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Pisada</text>
+                    {/* Espelho — vertical */}
+                    <line x1={10} y1={75} x2={10} y2={110} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                    <text x={6} y={96} textAnchor="middle" fontSize={10} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(-90,6,96)">Espelho</text>
+                    {/* Largura — profundidade */}
+                    <line x1={80} y1={55} x2={80} y2={110} stroke="var(--purple)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                    <text x={88} y={85} textAnchor="start" fontSize={10} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">Larg.</text>
+                    {/* Qtd hint */}
+                    <text x={110} y={105} textAnchor="middle" fontSize={9} fill="var(--text3)" fontFamily="sans-serif">× Qtd degraus</text>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Campos de entrada */}
+              <div style={{display:'flex',flexDirection:'column',gap:14,overflowY:'auto',maxHeight:420}}>
+
+                {/* Andar e Nome */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
+                  <div className={s.formGroup}><label className={s.formLabel}>Nome</label><input className={s.formInput} placeholder="ex: Escada 01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
+                </div>
+
+                {/* PATAMARES */}
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                    <span style={{fontSize:12,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Patamares</span>
+                    <button onClick={()=>setPatamares(p=>[...p,{comp:'',larg:'',esp:''}])}
+                      style={{fontSize:12,padding:'4px 12px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Adicionar</button>
+                  </div>
+                  {patamares.map((p,i)=>(
+                    <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:8,marginBottom:8,alignItems:'end'}}>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Comp. [cm]</label><input className={s.formInput} type="number" placeholder="200" value={p.comp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,comp:e.target.value}:x))}/></div>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Larg. [cm]</label><input className={s.formInput} type="number" placeholder="120" value={p.larg} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,larg:e.target.value}:x))}/></div>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Esp. [cm]</label><input className={s.formInput} type="number" placeholder="15" value={p.esp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,esp:e.target.value}:x))}/></div>
+                      {patamares.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'6px 8px'}} onClick={()=>setPatamares(p=>p.filter((_,j)=>j!==i))}>✕</button>}
+                    </div>
+                  ))}
+                  <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',textAlign:'right'}}>
+                    Patamares: {patamares.reduce((s,p)=>{const v=(parseFloat(p.comp)||0)*(parseFloat(p.larg)||0)*(parseFloat(p.esp)||0)/1000000;return s+v;},0).toFixed(4)} m³
+                  </div>
+                </div>
+
+                {/* DEGRAUS */}
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                    <span style={{fontSize:12,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Lances de Degraus</span>
+                    <button onClick={()=>setDegraus(d=>[...d,{pisada:'',espelho:'',largura:'',qtd:''}])}
+                      style={{fontSize:12,padding:'4px 12px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Adicionar</button>
+                  </div>
+                  {degraus.map((d,i)=>(
+                    <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 60px auto',gap:8,marginBottom:8,alignItems:'end'}}>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Pisada [cm]</label><input className={s.formInput} type="number" placeholder="28" value={d.pisada} onChange={e=>setDegraus(prev=>prev.map((x,j)=>j===i?{...x,pisada:e.target.value}:x))}/></div>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Espelho [cm]</label><input className={s.formInput} type="number" placeholder="17" value={d.espelho} onChange={e=>setDegraus(prev=>prev.map((x,j)=>j===i?{...x,espelho:e.target.value}:x))}/></div>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={d.largura} onChange={e=>setDegraus(prev=>prev.map((x,j)=>j===i?{...x,largura:e.target.value}:x))}/></div>
+                      <div className={s.formGroup}><label className={s.formLabel}>Qtd</label><input className={s.formInput} type="number" placeholder="10" value={d.qtd} onChange={e=>setDegraus(prev=>prev.map((x,j)=>j===i?{...x,qtd:e.target.value}:x))}/></div>
+                      {degraus.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'6px 8px'}} onClick={()=>setDegraus(d=>d.filter((_,j)=>j!==i))}>✕</button>}
+                    </div>
+                  ))}
+                  <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',textAlign:'right'}}>
+                    Degraus: {degraus.reduce((s,d)=>{const v=(parseFloat(d.pisada)||0)*(parseFloat(d.espelho)||0)/2*(parseFloat(d.largura)||0)*(parseFloat(d.qtd)||0)/1000000;return s+v;},0).toFixed(4)} m³
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Resultado */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume Total (Patamares + Degraus)</div>
                 <div style={{fontFamily:'var(--mono)',fontSize:28,fontWeight:700,color:volume>0?'var(--accent)':'var(--text3)'}}>{volume>0?volume.toFixed(4):'-'} <span style={{fontSize:14}}>m³</span></div>
               </div>
               <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>
@@ -2227,6 +2350,9 @@ export default function Home() {
           </button>
           <button className={`${s.sidebarItem} ${tab==='relatorios'?s.sidebarItemActive:''}`} onClick={()=>setTab('relatorios')}>
             <span className={s.sidebarItemIcon}>📊</span> Relatórios
+          </button>
+          <button className={`${s.sidebarItem} ${tab==='notas'?s.sidebarItemActive:''}`} onClick={()=>setTab('notas')}>
+            <span className={s.sidebarItemIcon}>📝</span> Notas de Versão
           </button>
           <div style={{padding:'16px 20px 4px',fontSize:10,fontWeight:700,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Levantamento</div>
           <button className={s.sidebarItem} onClick={()=>setModalCalc(true)}>
@@ -2548,6 +2674,64 @@ export default function Home() {
 
         {/* ══ LEVANTAMENTO ══ */}
         {tab==='levantamento'&&<PageLevantamento pecas={pecas} onEnviar={msg=>showToast(msg,'ok')}/>}
+
+      {tab==='notas'&&(
+        <main className={`${s.page} animate-fadein`}>
+          <div className={s.panel}>
+            <div className={s.panelTitle}>📝 Notas de Versão</div>
+
+            {[
+              {
+                versao: 'v1.0',
+                data: '2026-05-20',
+                status: 'atual',
+                itens: [
+                  'Dashboard operacional com KPIs em tempo real (Volume Projeto, Concretado, Faltando Real, Faltando Projeto, Índice de Perda)',
+                  'Filtro por Andar e Concretagem com dropdown — andar filtra concretagens disponíveis',
+                  'Progresso por Tipo de Peça clicável para expandir lista de peças individuais',
+                  'Status das BTs por Concretagem com % de perda/sobra por BT',
+                  'Lançar BT com steps: selecionar BT → peças & % (filtro por tipo) → fechamento (sobra/perda)',
+                  'Editar BT já lançada — zerar ou corrigir valores',
+                  'Gerenciar Peças: cadastro individual, importação em lote (colar TSV ou upload arquivo), baixar modelo Excel',
+                  'Gerenciar Concretagens: criar, editar, excluir com vínculos de peças e BTs',
+                  'Cálculo de perda: perda em obra + perda do caminhão (previsto − executado)',
+                  'Sobra inesperada contabilizada como perda negativa no índice',
+                  'Relatórios com gráficos: donuts de execução e perdas, gráfico de barras por andar, tabelas detalhadas',
+                  'Filtro do relatório por concretagem e andar atualiza todos os dados e gráficos',
+                  'Calcular Concreto: Pilar (Retangular, Redondo, Tipo L, Tipo T) e Rampa com esquemas visuais',
+                  'Levantamento de Concreto: lista intermediária antes de enviar para a base de peças',
+                  'Configuração da Obra: nome da obra, ordenação de andares (drag & drop, ▲▼, inverter), adicionar/remover andares',
+                  'Seletor de andares centralizado — todas as telas usam a mesma base de andares',
+                  'Suporte a volumes com vírgula decimal (formato BR da planilha Google Sheets)',
+                  'Auto-refresh desativado — dados só atualizam ao clicar ↻ ou após ação',
+                  'Logo e foto da obra na sidebar',
+                ],
+              },
+            ].map(v=>(
+              <div key={v.versao} style={{marginBottom:28}}>
+                <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
+                  <div style={{fontFamily:'var(--mono)',fontSize:22,fontWeight:700,color:'var(--accent)'}}>{v.versao}</div>
+                  <div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>{v.data}</div>
+                  {v.status==='atual'&&<span style={{background:'rgba(34,197,94,0.12)',color:'var(--green)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:20,padding:'3px 12px',fontSize:11,fontWeight:700}}>✓ Versão Atual</span>}
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {v.itens.map((item,i)=>(
+                    <div key={i} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'8px 12px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',borderLeft:'2px solid var(--border2)'}}>
+                      <span style={{color:'var(--accent)',fontWeight:700,flexShrink:0,marginTop:1}}>✓</span>
+                      <span style={{fontSize:13,color:'var(--text2)',lineHeight:1.5}}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div style={{marginTop:20,padding:'14px 16px',background:'var(--bg2)',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',lineHeight:1.8}}>
+              Stack: Next.js 14 · Google Sheets (banco de dados) · Google Apps Script (API) · Vercel (deploy)<br/>
+              Repositório: github.com/miltonfigueiredo97-lang/concreto-dashboard
+            </div>
+          </div>
+        </main>
+      )}
 
       {/* MODAIS */}
       <ModalCalcConcreto open={modalCalc} onClose={()=>setModalCalc(false)} levantamento={levantamento} setLevantamento={setLevantamento} config={config} pecas={pecas}/>
