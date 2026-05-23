@@ -1,4 +1,4 @@
-// v1779541742
+// v1779542333
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1894,6 +1894,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
   // Escada
   const [patamares, setPatamares] = useState([{comp:'',larg:'',esp:''}]);
   const [degraus, setDegraus] = useState([{pisada:'',espelho:'',largura:'',qtd:''}]);
+  const [lajeInc, setLajeInc] = useState([{altura:'',compH:'',larg:'',esp:''}]);
 
   const n = v => parseFloat(v)||0;
 
@@ -1910,15 +1911,19 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
     }
     if(tipoPeca==='escada') {
       const volPatamares = patamares.reduce((s,p) => {
-        const v = (n(p.comp) * n(p.larg) * n(p.esp)) / 1000000;
-        return s + v;
+        return s + (n(p.comp) * n(p.larg) * n(p.esp)) / 1000000;
       }, 0);
       const volDegraus = degraus.reduce((s,d) => {
-        // Volume real do degrau = triângulo (pisada × espelho / 2) × largura × qtd
-        const v = (n(d.pisada) * n(d.espelho) / 2 * n(d.largura) * n(d.qtd)) / 1000000;
+        // Triângulo do degrau: pisada × espelho / 2 × largura × qtd
+        return s + (n(d.pisada) * n(d.espelho) / 2 * n(d.largura) * n(d.qtd)) / 1000000;
+      }, 0);
+      const volLajeInc = lajeInc.reduce((s,l) => {
+        // Comprimento inclinado = √(Altura² + CompHoriz²)
+        const compIncl = Math.sqrt(Math.pow(n(l.altura)/100, 2) + Math.pow(n(l.compH)/100, 2));
+        const v = compIncl * (n(l.larg)/100) * (n(l.esp)/100);
         return s + v;
       }, 0);
-      return volPatamares + volDegraus;
+      return volPatamares + volDegraus + volLajeInc;
     }
     return 0;
   }
@@ -2071,6 +2076,27 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
               {/* Esquemas visuais lado a lado */}
               <div style={{display:'flex',flexDirection:'column',gap:12}}>
 
+                {/* Esquema Laje Inclinada */}
+                <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:14}}>
+                  <div style={{fontSize:11,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Laje Inclinada</div>
+                  <svg viewBox="0 0 220 110" width="100%" style={{display:'block'}}>
+                    {/* Laje inclinada */}
+                    <polygon points="20,85 180,30 180,44 20,99" fill="rgba(245,197,24,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+                    {/* Comp horizontal */}
+                    <line x1={20} y1={100} x2={180} y2={100} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                    <text x={100} y={108} textAnchor="middle" fontSize={9} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">Comp. horizontal</text>
+                    {/* Altura total */}
+                    <line x1={12} y1={30} x2={12} y2={85} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                    <text x={8} y={60} textAnchor="middle" fontSize={9} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(-90,8,60)">Altura</text>
+                    {/* Espessura */}
+                    <line x1={185} y1={30} x2={185} y2={44} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                    <text x={205} y={40} textAnchor="middle" fontSize={9} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp.</text>
+                    {/* Comp inclinado */}
+                    <line x1={20} y1={85} x2={180} y2={30} stroke="var(--purple)" strokeWidth={1} strokeDasharray="6,3" opacity={0.6}/>
+                    <text x={110} y={52} textAnchor="middle" fontSize={8} fill="var(--purple)" fontFamily="sans-serif">C inclinado</text>
+                  </svg>
+                </div>
+
                 {/* Esquema Patamar */}
                 <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:14}}>
                   <div style={{fontSize:11,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Patamar</div>
@@ -2131,6 +2157,42 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                   ))}
                   <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',textAlign:'right'}}>
                     Patamares: {patamares.reduce((s,p)=>{const v=(parseFloat(p.comp)||0)*(parseFloat(p.larg)||0)*(parseFloat(p.esp)||0)/1000000;return s+v;},0).toFixed(4)} m³
+                  </div>
+                </div>
+
+                {/* LAJE INCLINADA */}
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                    <span style={{fontSize:12,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Laje Inclinada</span>
+                    <button onClick={()=>setLajeInc(l=>[...l,{comp:'',larg:'',esp:''}])}
+                      style={{fontSize:12,padding:'4px 12px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Adicionar</button>
+                  </div>
+                  {lajeInc.map((l,i)=>{
+                    const compIncl = (parseFloat(l.altura)>0&&parseFloat(l.compH)>0)
+                      ? Math.sqrt(Math.pow(parseFloat(l.altura)/100,2)+Math.pow(parseFloat(l.compH)/100,2))
+                      : 0;
+                    const vLaje = compIncl*(parseFloat(l.larg)||0)/100*(parseFloat(l.esp)||0)/100;
+                    return(
+                    <div key={i}>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr auto',gap:8,marginBottom:4,alignItems:'end'}}>
+                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Altura total [cm]</label><input className={s.formInput} type="number" placeholder="255" value={l.altura} onChange={e=>setLajeInc(prev=>prev.map((x,j)=>j===i?{...x,altura:e.target.value}:x))}/></div>
+                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Comp. horiz. [cm]</label><input className={s.formInput} type="number" placeholder="420" value={l.compH} onChange={e=>setLajeInc(prev=>prev.map((x,j)=>j===i?{...x,compH:e.target.value}:x))}/></div>
+                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={l.larg} onChange={e=>setLajeInc(prev=>prev.map((x,j)=>j===i?{...x,larg:e.target.value}:x))}/></div>
+                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Espessura [cm]</label><input className={s.formInput} type="number" placeholder="12" value={l.esp} onChange={e=>setLajeInc(prev=>prev.map((x,j)=>j===i?{...x,esp:e.target.value}:x))}/></div>
+                        {lajeInc.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'6px 8px'}} onClick={()=>setLajeInc(l=>l.filter((_,j)=>j!==i))}>✕</button>}
+                      </div>
+                      {compIncl>0&&<div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:6,paddingLeft:4}}>
+                        C inclinado = √({(parseFloat(l.altura)/100).toFixed(2)}² + {(parseFloat(l.compH)/100).toFixed(2)}²) = <span style={{color:'var(--accent)',fontWeight:700}}>{compIncl.toFixed(3)} m</span>
+                        &nbsp;→ Vol = <span style={{color:'var(--accent)',fontWeight:700}}>{vLaje.toFixed(4)} m³</span>
+                      </div>}
+                    </div>
+                    );
+                  })}
+                  <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',textAlign:'right',marginTop:4}}>
+                    Laje inclinada: {lajeInc.reduce((s,l)=>{
+                      const c=Math.sqrt(Math.pow((parseFloat(l.altura)||0)/100,2)+Math.pow((parseFloat(l.compH)||0)/100,2));
+                      return s+c*(parseFloat(l.larg)||0)/100*(parseFloat(l.esp)||0)/100;
+                    },0).toFixed(4)} m³
                   </div>
                 </div>
 
