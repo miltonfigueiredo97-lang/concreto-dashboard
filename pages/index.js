@@ -1,4 +1,4 @@
-// v1779541507
+// v1779541742
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1950,7 +1950,8 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
               {[
                 {id:'pilar',  icon:'▭', label:'Pilares',  sub:'Retangular, redondo, L ou T'},
-                {id:'rampa', icon:'▤', label:'Rampas',  sub:'Laje inclinada / degraus'},
+                {id:'rampa',  icon:'⟋', label:'Rampas',   sub:'Comprimento × Largura × Esp. Laje'},
+                {id:'escada', icon:'🪜', label:'Escadas',  sub:'Patamares + lances de degraus'},
               ].map(t=>(
                 <div key={t.id} onClick={()=>setTipoPeca(t.id)} className={s.menuCard} style={{textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:8}}>{t.icon}</div>
