@@ -2227,6 +2227,9 @@ export default function Home() {
           <button className={`${s.sidebarItem} ${tab==='relatorios'?s.sidebarItemActive:''}`} onClick={()=>setTab('relatorios')}>
             <span className={s.sidebarItemIcon}>📊</span> Relatórios
           </button>
+          <button className={`${s.sidebarItem} ${tab==='notas'?s.sidebarItemActive:''}`} onClick={()=>setTab('notas')}>
+            <span className={s.sidebarItemIcon}>📝</span> Notas de Versão
+          </button>
           <div style={{padding:'16px 20px 4px',fontSize:10,fontWeight:700,color:'var(--text3)',letterSpacing:2,textTransform:'uppercase'}}>Levantamento</div>
           <button className={s.sidebarItem} onClick={()=>setModalCalc(true)}>
             <span className={s.sidebarItemIcon}>📐</span> Calcular Concreto
@@ -2547,6 +2550,64 @@ export default function Home() {
 
         {/* ══ LEVANTAMENTO ══ */}
         {tab==='levantamento'&&<PageLevantamento pecas={pecas} onEnviar={msg=>showToast(msg,'ok')}/>}
+
+      {tab==='notas'&&(
+        <main className={`${s.page} animate-fadein`}>
+          <div className={s.panel}>
+            <div className={s.panelTitle}>📝 Notas de Versão</div>
+
+            {[
+              {
+                versao: 'v1.0',
+                data: '2026-05-20',
+                status: 'atual',
+                itens: [
+                  'Dashboard operacional com KPIs em tempo real (Volume Projeto, Concretado, Faltando Real, Faltando Projeto, Índice de Perda)',
+                  'Filtro por Andar e Concretagem com dropdown — andar filtra concretagens disponíveis',
+                  'Progresso por Tipo de Peça clicável para expandir lista de peças individuais',
+                  'Status das BTs por Concretagem com % de perda/sobra por BT',
+                  'Lançar BT com steps: selecionar BT → peças & % (filtro por tipo) → fechamento (sobra/perda)',
+                  'Editar BT já lançada — zerar ou corrigir valores',
+                  'Gerenciar Peças: cadastro individual, importação em lote (colar TSV ou upload arquivo), baixar modelo Excel',
+                  'Gerenciar Concretagens: criar, editar, excluir com vínculos de peças e BTs',
+                  'Cálculo de perda: perda em obra + perda do caminhão (previsto − executado)',
+                  'Sobra inesperada contabilizada como perda negativa no índice',
+                  'Relatórios com gráficos: donuts de execução e perdas, gráfico de barras por andar, tabelas detalhadas',
+                  'Filtro do relatório por concretagem e andar atualiza todos os dados e gráficos',
+                  'Calcular Concreto: Pilar (Retangular, Redondo, Tipo L, Tipo T) e Rampa com esquemas visuais',
+                  'Levantamento de Concreto: lista intermediária antes de enviar para a base de peças',
+                  'Configuração da Obra: nome da obra, ordenação de andares (drag & drop, ▲▼, inverter), adicionar/remover andares',
+                  'Seletor de andares centralizado — todas as telas usam a mesma base de andares',
+                  'Suporte a volumes com vírgula decimal (formato BR da planilha Google Sheets)',
+                  'Auto-refresh desativado — dados só atualizam ao clicar ↻ ou após ação',
+                  'Logo e foto da obra na sidebar',
+                ],
+              },
+            ].map(v=>(
+              <div key={v.versao} style={{marginBottom:28}}>
+                <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16,paddingBottom:12,borderBottom:'1px solid var(--border)'}}>
+                  <div style={{fontFamily:'var(--mono)',fontSize:22,fontWeight:700,color:'var(--accent)'}}>{v.versao}</div>
+                  <div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>{v.data}</div>
+                  {v.status==='atual'&&<span style={{background:'rgba(34,197,94,0.12)',color:'var(--green)',border:'1px solid rgba(34,197,94,0.2)',borderRadius:20,padding:'3px 12px',fontSize:11,fontWeight:700}}>✓ Versão Atual</span>}
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {v.itens.map((item,i)=>(
+                    <div key={i} style={{display:'flex',gap:12,alignItems:'flex-start',padding:'8px 12px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',borderLeft:'2px solid var(--border2)'}}>
+                      <span style={{color:'var(--accent)',fontWeight:700,flexShrink:0,marginTop:1}}>✓</span>
+                      <span style={{fontSize:13,color:'var(--text2)',lineHeight:1.5}}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div style={{marginTop:20,padding:'14px 16px',background:'var(--bg2)',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',lineHeight:1.8}}>
+              Stack: Next.js 14 · Google Sheets (banco de dados) · Google Apps Script (API) · Vercel (deploy)<br/>
+              Repositório: github.com/miltonfigueiredo97-lang/concreto-dashboard
+            </div>
+          </div>
+        </main>
+      )}
 
       {/* MODAIS */}
       <ModalCalcConcreto open={modalCalc} onClose={()=>setModalCalc(false)} levantamento={levantamento} setLevantamento={setLevantamento} config={config} pecas={pecas}/>
