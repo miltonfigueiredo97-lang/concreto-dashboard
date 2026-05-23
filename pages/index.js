@@ -1,4 +1,4 @@
-// v1779543327
+// v1779543581
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1875,55 +1875,44 @@ function EsquemaPilar({ tipo }) {
 }
 
 function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, config, pecas }) {
-  const [tipoPeca, setTipoPeca] = useState(null); // null=menu, 'pilar','escada'
+  const [tipoPeca, setTipoPeca] = useState(null);
   const [tipoP, setTipoP] = useState('ret');
-  // Campos comuns
   const [andar, setAndar] = useState('');
   const [nome, setNome] = useState('');
   // Pilar
   const [peDireito, setPeDireito] = useState('');
-  const [altViga, setAltViga] = useState('');
   const [mA, setMA] = useState('');
   const [mB, setMB] = useState('');
   const [mC, setMC] = useState('');
   const [mD, setMD] = useState('');
-  // Escada
+  // Rampa
   const [comprimento, setComprimento] = useState('');
   const [largura, setLargura] = useState('');
   const [altLaje, setAltLaje] = useState('');
   // Escada
   const [patamares, setPatamares] = useState([{comp:'',larg:'',esp:''}]);
-  const [degraus, setDegraus] = useState([{pisada:'',espelho:'',largura:'',qtd:''}]);
   const [lajeInc, setLajeInc] = useState([{altura:'',compH:'',larg:'',esp:''}]);
+  const [degraus, setDegraus] = useState([{pisada:'',espelho:'',largura:'',qtd:''}]);
 
   const n = v => parseFloat(v)||0;
 
   function calcVolume() {
     if(tipoPeca==='pilar') {
-      const pd = n(peDireito) - n(altViga); // altura líquida
-      if(tipoP==='ret') return (n(peDireito) * n(mA) * n(mB)) / 1000000;
-      if(tipoP==='red') return (((Math.PI * n(mA) * n(mA)) / 4) * n(peDireito)) / 1000000;
+      const pd = n(peDireito);
+      if(tipoP==='ret') return (pd * n(mA) * n(mB)) / 1000000;
+      if(tipoP==='red') return (((Math.PI * n(mA) * n(mA)) / 4) * pd) / 1000000;
       if(tipoP==='L')   return ((n(mA) * (n(mB) - n(mD))) + (n(mC) * n(mD))) * pd / 1000000;
       if(tipoP==='T')   return ((n(mA) * n(mB)) + (n(mC) * n(mD))) * pd / 1000000;
     }
-    if(tipoPeca==='rampa') {
-      return (n(comprimento) * n(largura) * n(altLaje)) / 1000000;
-    }
+    if(tipoPeca==='rampa') return (n(comprimento) * n(largura) * n(altLaje)) / 1000000;
     if(tipoPeca==='escada') {
-      const volPatamares = patamares.reduce((s,p) => {
-        return s + (n(p.comp) * n(p.larg) * n(p.esp)) / 1000000;
+      const volPat = patamares.reduce((s,p) => s + (n(p.comp)*n(p.larg)*n(p.esp))/1000000, 0);
+      const volDeg = degraus.reduce((s,d) => s + (n(d.pisada)*n(d.espelho)/2*n(d.largura)*n(d.qtd))/1000000, 0);
+      const volLaj = lajeInc.reduce((s,l) => {
+        const c = Math.sqrt(Math.pow(n(l.altura)/100,2) + Math.pow(n(l.compH)/100,2));
+        return s + c*(n(l.larg)/100)*(n(l.esp)/100);
       }, 0);
-      const volDegraus = degraus.reduce((s,d) => {
-        // Triângulo do degrau: pisada × espelho / 2 × largura × qtd
-        return s + (n(d.pisada) * n(d.espelho) / 2 * n(d.largura) * n(d.qtd)) / 1000000;
-      }, 0);
-      const volLajeInc = lajeInc.reduce((s,l) => {
-        // Comprimento inclinado = √(Altura² + CompHoriz²)
-        const compIncl = Math.sqrt(Math.pow(n(l.altura)/100, 2) + Math.pow(n(l.compH)/100, 2));
-        const v = compIncl * (n(l.larg)/100) * (n(l.esp)/100);
-        return s + v;
-      }, 0);
-      return volPatamares + volDegraus + volLajeInc;
+      return volPat + volDeg + volLaj;
     }
     return 0;
   }
@@ -1933,30 +1922,40 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
   function adicionar() {
     if(!nome||!andar||volume<=0) return;
     const nova = {
-      id: 'lev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      nome, andar, tipo: tipoPeca==='pilar'?'Pilar':tipoPeca==='escada'?'Escada':'Rampa', volume,
+      id:'lev_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      nome, andar,
+      tipo: tipoPeca==='pilar'?'Pilar':tipoPeca==='escada'?'Escada':'Rampa',
+      volume,
     };
     setLevantamento(prev=>[...prev, nova]);
-    // Reset campos mantendo andar
     setNome(''); setMA(''); setMB(''); setMC(''); setMD('');
-    setPeDireito(''); setAltViga(''); setComprimento(''); setLargura(''); setAltLaje('');
+    setPeDireito(''); setComprimento(''); setLargura(''); setAltLaje('');
+    setPatamares([{comp:'',larg:'',esp:''}]);
+    setLajeInc([{altura:'',compH:'',larg:'',esp:''}]);
+    setDegraus([{pisada:'',espelho:'',largura:'',qtd:''}]);
   }
 
+  const PILAR_TIPOS = [
+    {id:'ret', label:'Retangular', icon:'▭'},
+    {id:'red', label:'Redondo',    icon:'◯'},
+    {id:'L',   label:'Tipo L',     icon:'⌐'},
+    {id:'T',   label:'Tipo T',     icon:'⊤'},
+  ];
+
   if(!open) return null;
-  return(
+  return (
     <div className={s.modalOverlay} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className={`${s.modal} ${s.modalWide}`}>
+      <div className={`${s.modal} ${s.modalExtraWide}`}>
         <div className={s.modalTitle}>📐 Calcular Concreto</div>
 
-        {/* Menu tipo de peça */}
         {!tipoPeca&&(
           <div>
-            <div style={{marginBottom:16,fontSize:13,color:'var(--text3)'}}>Selecione o tipo de peça para calcular o volume:</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+            <div style={{marginBottom:16,fontSize:13,color:'var(--text3)'}}>Selecione o tipo de peça:</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
               {[
-                {id:'pilar',  icon:'▭', label:'Pilares',  sub:'Retangular, redondo, L ou T'},
-                {id:'rampa',  icon:'⟋', label:'Rampas',   sub:'Comprimento × Largura × Esp. Laje'},
-                {id:'escada', icon:'🪜', label:'Escadas',  sub:'Patamares + lances de degraus'},
+                {id:'pilar',  icon:'▭', label:'Pilar',  sub:'Ret, Redondo, L ou T'},
+                {id:'rampa',  icon:'⟋', label:'Rampa',  sub:'Comprimento × Largura × Esp.'},
+                {id:'escada', icon:'🪜', label:'Escada', sub:'Patamares + Laje + Degraus'},
               ].map(t=>(
                 <div key={t.id} onClick={()=>setTipoPeca(t.id)} className={s.menuCard} style={{textAlign:'center'}}>
                   <div style={{fontSize:36,marginBottom:8}}>{t.icon}</div>
@@ -1969,78 +1968,60 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
           </div>
         )}
 
-        {/* PILAR */}
         {tipoPeca==='pilar'&&(
           <div>
-            {/* Seletor de tipo de pilar */}
-            <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+            <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
               {PILAR_TIPOS.map(t=>(
                 <button key={t.id} onClick={()=>setTipoP(t.id)} style={{
-                  display:'flex',flexDirection:'column',alignItems:'center',gap:4,
-                  padding:'10px 18px',border:`2px solid ${tipoP===t.id?'var(--accent)':'var(--border)'}`,
+                  display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'10px 18px',
+                  border:`2px solid ${tipoP===t.id?'var(--accent)':'var(--border)'}`,
                   background:tipoP===t.id?'rgba(245,197,24,0.1)':'var(--surface2)',
-                  color:tipoP===t.id?'var(--accent)':'var(--text2)',cursor:'pointer',borderRadius:'var(--radius-sm)',
-                  fontSize:13,fontWeight:tipoP===t.id?700:500,minWidth:80,
+                  color:tipoP===t.id?'var(--accent)':'var(--text2)',cursor:'pointer',
+                  borderRadius:'var(--radius-sm)',fontSize:13,fontWeight:tipoP===t.id?700:500,minWidth:80,
                 }}>
-                  <span style={{fontSize:22}}>{t.icon}</span>
-                  {t.label}
+                  <span style={{fontSize:22}}>{t.icon}</span>{t.label}
                 </button>
               ))}
             </div>
-
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
-              {/* Esquema visual */}
-              <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16}}>
-                <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — {PILAR_TIPOS.find(t=>t.id===tipoP)?.label}</div>
+            <div style={{display:'grid',gridTemplateColumns:'200px 1fr',gap:20,marginBottom:16}}>
+              <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
                 <EsquemaPilar tipo={tipoP}/>
-                
               </div>
-
-              {/* Campos */}
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
                 <div className={s.formGroup}><label className={s.formLabel}>Nome do Pilar</label><input className={s.formInput} placeholder="ex: P-01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
                 <div className={s.formGroup}><label className={s.formLabel}>Pé Direito [cm]</label><input className={s.formInput} type="number" placeholder="280" value={peDireito} onChange={e=>setPeDireito(e.target.value)}/></div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                  <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Medida A [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mA} onChange={e=>setMA(e.target.value)}/></div>
-                  {(tipoP==='ret'||tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Medida B [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mB} onChange={e=>setMB(e.target.value)}/></div>}
-                  {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Medida C [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mC} onChange={e=>setMC(e.target.value)}/></div>}
-                  {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Medida D [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mD} onChange={e=>setMD(e.target.value)}/></div>}
+                  <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>A [cm]</label><input className={s.formInput} type="number" value={mA} onChange={e=>setMA(e.target.value)}/></div>
+                  {(tipoP==='ret'||tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>B [cm]</label><input className={s.formInput} type="number" value={mB} onChange={e=>setMB(e.target.value)}/></div>}
+                  {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>C [cm]</label><input className={s.formInput} type="number" value={mC} onChange={e=>setMC(e.target.value)}/></div>}
+                  {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>D [cm]</label><input className={s.formInput} type="number" value={mD} onChange={e=>setMD(e.target.value)}/></div>}
                 </div>
-              </div>{/* fim campos */}
-            </div>{/* fim grid 2col */}
-
-            {/* Resultado */}
+              </div>
+            </div>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
               <div>
                 <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume calculado</div>
                 <div style={{fontFamily:'var(--mono)',fontSize:28,fontWeight:700,color:volume>0?'var(--accent)':'var(--text3)'}}>{volume>0?volume.toFixed(4):'-'} <span style={{fontSize:14}}>m³</span></div>
               </div>
-              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>
-                + Adicionar ao Levantamento
-              </button>
+              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>+ Adicionar ao Levantamento</button>
             </div>
-
-            <div className={s.btnRow}>
-              <button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button>
-            </div>
+            <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button></div>
           </div>
         )}
 
-
-        {/* RAMPA */}
         {tipoPeca==='rampa'&&(
           <div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
+            <div style={{display:'grid',gridTemplateColumns:'200px 1fr',gap:20,marginBottom:16}}>
               <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16}}>
-                <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — Rampa</div>
-                <svg viewBox="0 0 200 160" width={160} height={140} style={{display:'block',margin:'0 auto'}}>
-                  <rect x={20} y={20} width={140} height={100} fill="rgba(59,130,246,0.1)" stroke="var(--accent)" strokeWidth={2} rx={4}/>
-                  <line x1={20} y1={130} x2={160} y2={130} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                  <text x={90} y={145} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
-                  <line x1={168} y1={20} x2={168} y2={120} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                  <text x={182} y={74} textAnchor="middle" fontSize={12} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,182,74)">Largura</text>
-                  <text x={90} y={74} textAnchor="middle" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp. Laje</text>
+                <div style={{fontSize:11,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Rampa</div>
+                <svg viewBox="0 0 200 130" width="100%" style={{display:'block'}}>
+                  <rect x={20} y={20} width={140} height={80} fill="rgba(59,130,246,0.1)" stroke="var(--accent)" strokeWidth={2} rx={4}/>
+                  <line x1={20} y1={108} x2={160} y2={108} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={90} y={120} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
+                  <line x1={168} y1={20} x2={168} y2={100} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={182} y={64} textAnchor="middle" fontSize={11} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,182,64)">Largura</text>
+                  <text x={90} y={64} textAnchor="middle" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp. Laje</text>
                 </svg>
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -2056,182 +2037,130 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                 <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume calculado</div>
                 <div style={{fontFamily:'var(--mono)',fontSize:28,fontWeight:700,color:volume>0?'var(--accent)':'var(--text3)'}}>{volume>0?volume.toFixed(4):'-'} <span style={{fontSize:14}}>m³</span></div>
               </div>
-              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>
-                + Adicionar ao Levantamento
-              </button>
+              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>+ Adicionar ao Levantamento</button>
             </div>
             <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button></div>
           </div>
         )}
 
-
-        {/* ESCADA */}
         {tipoPeca==='escada'&&(
           <div>
-            {/* Esquemas visuais — linha horizontal */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
-
-                {/* Esquema Laje Inclinada */}
-                <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:14}}>
-                  <div style={{fontSize:11,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Laje Inclinada</div>
-                  <svg viewBox="0 0 220 110" width="100%" style={{display:'block'}}>
-                    {/* Laje inclinada */}
-                    <polygon points="20,85 180,30 180,44 20,99" fill="rgba(245,197,24,0.15)" stroke="var(--accent)" strokeWidth={2}/>
-                    {/* Comp horizontal */}
-                    <line x1={20} y1={100} x2={180} y2={100} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                    <text x={100} y={108} textAnchor="middle" fontSize={9} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">Comp. horizontal</text>
-                    {/* Altura total */}
-                    <line x1={12} y1={30} x2={12} y2={85} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                    <text x={8} y={60} textAnchor="middle" fontSize={9} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(-90,8,60)">Altura</text>
-                    {/* Espessura */}
-                    <line x1={185} y1={30} x2={185} y2={44} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                    <text x={205} y={40} textAnchor="middle" fontSize={9} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp.</text>
-                    {/* Comp inclinado */}
-                    <line x1={20} y1={85} x2={180} y2={30} stroke="var(--purple)" strokeWidth={1} strokeDasharray="6,3" opacity={0.6}/>
-                    <text x={110} y={52} textAnchor="middle" fontSize={8} fill="var(--purple)" fontFamily="sans-serif">C inclinado</text>
-                  </svg>
-                </div>
-
-                {/* Esquema Patamar */}
-                <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:14}}>
-                  <div style={{fontSize:11,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Patamar</div>
-                  <svg viewBox="0 0 200 100" width="100%" style={{display:'block'}}>
-                    <rect x={20} y={15} width={160} height={60} fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2} rx={3}/>
-                    <line x1={20} y1={84} x2={180} y2={84} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                    <text x={100} y={96} textAnchor="middle" fontSize={11} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
-                    <line x1={185} y1={15} x2={185} y2={75} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                    <text x={196} y={48} textAnchor="middle" fontSize={11} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,196,48)">Largura</text>
-                    <text x={100} y={48} textAnchor="middle" fontSize={11} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp.</text>
-                  </svg>
-                </div>
-
-                {/* Esquema Degrau 3D */}
-                <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:14}}>
-                  <div style={{fontSize:11,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Degraus (vista 3D)</div>
-                  <svg viewBox="0 0 220 140" width="100%" style={{display:'block'}}>
-                    {/* Degrau 1 (fundo) */}
-                    <polygon points="20,110 80,110 80,75 140,75 140,40 200,40 200,20 140,20 140,55 80,55 80,90 20,90" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
-                    {/* Pisada — horizontal */}
-                    <line x1={20} y1={120} x2={80} y2={120} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                    <text x={50} y={134} textAnchor="middle" fontSize={10} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Pisada</text>
-                    {/* Espelho — vertical */}
-                    <line x1={10} y1={75} x2={10} y2={110} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                    <text x={6} y={96} textAnchor="middle" fontSize={10} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(-90,6,96)">Espelho</text>
-                    {/* Largura — profundidade */}
-                    <line x1={80} y1={55} x2={80} y2={110} stroke="var(--purple)" strokeWidth={1.5} strokeDasharray="4,2"/>
-                    <text x={88} y={85} textAnchor="start" fontSize={10} fill="var(--purple)" fontFamily="sans-serif" fontWeight="bold">Larg.</text>
-                    {/* Qtd hint */}
-                    <text x={110} y={105} textAnchor="middle" fontSize={9} fill="var(--text3)" fontFamily="sans-serif">× Qtd degraus</text>
-                  </svg>
-                </div>
-            </div>{/* fim esquemas */}
-
-            {/* Campos de entrada */}
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
-
-                {/* Andar e Nome */}
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                  <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
-                  <div className={s.formGroup}><label className={s.formLabel}>Nome</label><input className={s.formInput} placeholder="ex: Escada 01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
-                </div>
-
-                {/* PATAMARES */}
-                <div>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-                    <span style={{fontSize:12,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Patamares</span>
-                    <button onClick={()=>setPatamares(p=>[...p,{comp:'',larg:'',esp:''}])}
-                      style={{fontSize:12,padding:'4px 12px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Adicionar</button>
-                  </div>
-                  {patamares.map((p,i)=>(
-                    <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:8,marginBottom:8,alignItems:'end'}}>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Comprimento [cm]</label><input className={s.formInput} type="number" placeholder="200" value={p.comp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,comp:e.target.value}:x))}/></div>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={p.larg} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,larg:e.target.value}:x))}/></div>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Espessura [cm]</label><input className={s.formInput} type="number" placeholder="15" value={p.esp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,esp:e.target.value}:x))}/></div>
-                      {patamares.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'6px 8px'}} onClick={()=>setPatamares(p=>p.filter((_,j)=>j!==i))}>✕</button>}
-                    </div>
-                  ))}
-                  <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',textAlign:'right'}}>
-                    Patamares: {patamares.reduce((s,p)=>{const v=(parseFloat(p.comp)||0)*(parseFloat(p.larg)||0)*(parseFloat(p.esp)||0)/1000000;return s+v;},0).toFixed(4)} m³
-                  </div>
-                </div>
-
-                {/* LAJE INCLINADA */}
-                <div>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-                    <span style={{fontSize:12,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Laje Inclinada</span>
-                    <button onClick={()=>setLajeInc(l=>[...l,{comp:'',larg:'',esp:''}])}
-                      style={{fontSize:12,padding:'4px 12px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Adicionar</button>
-                  </div>
-                  {lajeInc.map((l,i)=>{
-                    const compIncl = (parseFloat(l.altura)>0&&parseFloat(l.compH)>0)
-                      ? Math.sqrt(Math.pow(parseFloat(l.altura)/100,2)+Math.pow(parseFloat(l.compH)/100,2))
-                      : 0;
-                    const vLaje = compIncl*(parseFloat(l.larg)||0)/100*(parseFloat(l.esp)||0)/100;
-                    return(
-                    <div key={i}>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr auto',gap:8,marginBottom:4,alignItems:'end'}}>
-                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Altura total [cm]</label><input className={s.formInput} type="number" placeholder="255" value={l.altura} onChange={e=>setLajeInc(prev=>prev.map((x,j)=>j===i?{...x,altura:e.target.value}:x))}/></div>
-                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Comp. horiz. [cm]</label><input className={s.formInput} type="number" placeholder="420" value={l.compH} onChange={e=>setLajeInc(prev=>prev.map((x,j)=>j===i?{...x,compH:e.target.value}:x))}/></div>
-                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={l.larg} onChange={e=>setLajeInc(prev=>prev.map((x,j)=>j===i?{...x,larg:e.target.value}:x))}/></div>
-                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Espessura [cm]</label><input className={s.formInput} type="number" placeholder="12" value={l.esp} onChange={e=>setLajeInc(prev=>prev.map((x,j)=>j===i?{...x,esp:e.target.value}:x))}/></div>
-                        {lajeInc.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'6px 8px'}} onClick={()=>setLajeInc(l=>l.filter((_,j)=>j!==i))}>✕</button>}
-                      </div>
-                      {compIncl>0&&<div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:6,paddingLeft:4}}>
-                        C inclinado = √({(parseFloat(l.altura)/100).toFixed(2)}² + {(parseFloat(l.compH)/100).toFixed(2)}²) = <span style={{color:'var(--accent)',fontWeight:700}}>{compIncl.toFixed(3)} m</span>
-                        &nbsp;→ Vol = <span style={{color:'var(--accent)',fontWeight:700}}>{vLaje.toFixed(4)} m³</span>
-                      </div>}
-                    </div>
-                    );
-                  })}
-                  <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',textAlign:'right',marginTop:4}}>
-                    Laje inclinada: {lajeInc.reduce((s,l)=>{
-                      const c=Math.sqrt(Math.pow((parseFloat(l.altura)||0)/100,2)+Math.pow((parseFloat(l.compH)||0)/100,2));
-                      return s+c*(parseFloat(l.larg)||0)/100*(parseFloat(l.esp)||0)/100;
-                    },0).toFixed(4)} m³
-                  </div>
-                </div>
-
-                {/* DEGRAUS */}
-                <div>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-                    <span style={{fontSize:12,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Lances de Degraus</span>
-                    <button onClick={()=>setDegraus(d=>[...d,{pisada:'',espelho:'',largura:'',qtd:''}])}
-                      style={{fontSize:12,padding:'4px 12px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Adicionar</button>
-                  </div>
-                  {degraus.map((d,i)=>(
-                    <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 60px auto',gap:8,marginBottom:8,alignItems:'end'}}>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Pisada [cm]</label><input className={s.formInput} type="number" placeholder="28" value={d.pisada} onChange={e=>setDegraus(prev=>prev.map((x,j)=>j===i?{...x,pisada:e.target.value}:x))}/></div>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Espelho [cm]</label><input className={s.formInput} type="number" placeholder="17" value={d.espelho} onChange={e=>setDegraus(prev=>prev.map((x,j)=>j===i?{...x,espelho:e.target.value}:x))}/></div>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={d.largura} onChange={e=>setDegraus(prev=>prev.map((x,j)=>j===i?{...x,largura:e.target.value}:x))}/></div>
-                      <div className={s.formGroup}><label className={s.formLabel}>Qtd</label><input className={s.formInput} type="number" placeholder="10" value={d.qtd} onChange={e=>setDegraus(prev=>prev.map((x,j)=>j===i?{...x,qtd:e.target.value}:x))}/></div>
-                      {degraus.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'6px 8px'}} onClick={()=>setDegraus(d=>d.filter((_,j)=>j!==i))}>✕</button>}
-                    </div>
-                  ))}
-                  <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--accent)',textAlign:'right'}}>
-                    Degraus: {degraus.reduce((s,d)=>{const v=(parseFloat(d.pisada)||0)*(parseFloat(d.espelho)||0)/2*(parseFloat(d.largura)||0)*(parseFloat(d.qtd)||0)/1000000;return s+v;},0).toFixed(4)} m³
-                  </div>
-                </div>
-              </div>{/* fim campos */}
-            </div>{/* fim grid 2col */}
-
-            {/* Resultado */}
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:16}}>
+              <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:12}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Laje Inclinada</div>
+                <svg viewBox="0 0 200 100" width="100%" style={{display:'block'}}>
+                  <polygon points="20,80 180,25 180,38 20,93" fill="rgba(245,197,24,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+                  <line x1={20} y1={90} x2={180} y2={90} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={100} y={99} textAnchor="middle" fontSize={9} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold">Comp. horiz.</text>
+                  <line x1={12} y1={25} x2={12} y2={80} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={7} y={56} textAnchor="middle" fontSize={9} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(-90,7,56)">Altura</text>
+                  <line x1={183} y1={25} x2={183} y2={38} stroke="var(--red)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={195} y={34} textAnchor="start" fontSize={9} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp.</text>
+                </svg>
+              </div>
+              <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:12}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Patamar</div>
+                <svg viewBox="0 0 200 100" width="100%" style={{display:'block'}}>
+                  <rect x={20} y={15} width={160} height={60} fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2} rx={3}/>
+                  <line x1={20} y1={84} x2={180} y2={84} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={100} y={95} textAnchor="middle" fontSize={9} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
+                  <line x1={185} y1={15} x2={185} y2={75} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={196} y={48} textAnchor="middle" fontSize={9} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,196,48)">Largura</text>
+                  <text x={100} y={48} textAnchor="middle" fontSize={10} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Espessura</text>
+                </svg>
+              </div>
+              <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:12}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:8,textAlign:'center'}}>Degraus</div>
+                <svg viewBox="0 0 200 130" width="100%" style={{display:'block'}}>
+                  <polygon points="20,100 80,100 80,70 140,70 140,40 200,40 200,20 140,20 140,50 80,50 80,80 20,80" fill="rgba(59,130,246,0.15)" stroke="var(--accent)" strokeWidth={2}/>
+                  <line x1={20} y1={110} x2={80} y2={110} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={50} y={122} textAnchor="middle" fontSize={9} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Pisada</text>
+                  <line x1={10} y1={80} x2={10} y2={100} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={6} y={92} textAnchor="middle" fontSize={9} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(-90,6,92)">Espelho</text>
+                  <text x={160} y={55} textAnchor="middle" fontSize={9} fill="var(--purple)" fontFamily="sans-serif">Larg.</text>
+                  <text x={110} y={115} textAnchor="middle" fontSize={8} fill="var(--text3)" fontFamily="sans-serif">× Qtd degraus</text>
+                </svg>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:12}}>
+              <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
+              <div className={s.formGroup}><label className={s.formLabel}>Nome</label><input className={s.formInput} placeholder="ex: Escada 01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
               <div>
-                <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume Total (Patamares + Degraus)</div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <span style={{fontSize:11,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Laje Inclinada</span>
+                  <button onClick={()=>setLajeInc(l=>[...l,{altura:'',compH:'',larg:'',esp:''}])} style={{fontSize:11,padding:'3px 10px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Add</button>
+                </div>
+                {lajeInc.map((l,i)=>{
+                  const c=Math.sqrt(Math.pow((parseFloat(l.altura)||0)/100,2)+Math.pow((parseFloat(l.compH)||0)/100,2));
+                  const v=c*(parseFloat(l.larg)||0)/100*(parseFloat(l.esp)||0)/100;
+                  return(
+                    <div key={i} style={{marginBottom:8}}>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr auto',gap:6,alignItems:'end'}}>
+                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Alt.[cm]</label><input className={s.formInput} type="number" placeholder="255" value={l.altura} onChange={e=>setLajeInc(p=>p.map((x,j)=>j===i?{...x,altura:e.target.value}:x))}/></div>
+                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>C.Hor.[cm]</label><input className={s.formInput} type="number" placeholder="420" value={l.compH} onChange={e=>setLajeInc(p=>p.map((x,j)=>j===i?{...x,compH:e.target.value}:x))}/></div>
+                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Larg.[cm]</label><input className={s.formInput} type="number" placeholder="120" value={l.larg} onChange={e=>setLajeInc(p=>p.map((x,j)=>j===i?{...x,larg:e.target.value}:x))}/></div>
+                        <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Esp.[cm]</label><input className={s.formInput} type="number" placeholder="12" value={l.esp} onChange={e=>setLajeInc(p=>p.map((x,j)=>j===i?{...x,esp:e.target.value}:x))}/></div>
+                        {lajeInc.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'5px 7px'}} onClick={()=>setLajeInc(p=>p.filter((_,j)=>j!==i))}>✕</button>}
+                      </div>
+                      {c>0&&<div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--text3)',marginTop:2}}>C={c.toFixed(3)}m → <span style={{color:'var(--accent)'}}>{v.toFixed(4)} m³</span></div>}
+                    </div>
+                  );
+                })}
+                <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',textAlign:'right',marginBottom:16}}>
+                  Laje: {lajeInc.reduce((s,l)=>{const c=Math.sqrt(Math.pow((parseFloat(l.altura)||0)/100,2)+Math.pow((parseFloat(l.compH)||0)/100,2));return s+c*(parseFloat(l.larg)||0)/100*(parseFloat(l.esp)||0)/100;},0).toFixed(4)} m³
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <span style={{fontSize:11,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Patamares</span>
+                  <button onClick={()=>setPatamares(p=>[...p,{comp:'',larg:'',esp:''}])} style={{fontSize:11,padding:'3px 10px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Add</button>
+                </div>
+                {patamares.map((p,i)=>(
+                  <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:6,marginBottom:6,alignItems:'end'}}>
+                    <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Comp.[cm]</label><input className={s.formInput} type="number" placeholder="200" value={p.comp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,comp:e.target.value}:x))}/></div>
+                    <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Larg.[cm]</label><input className={s.formInput} type="number" placeholder="120" value={p.larg} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,larg:e.target.value}:x))}/></div>
+                    <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Esp.[cm]</label><input className={s.formInput} type="number" placeholder="15" value={p.esp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,esp:e.target.value}:x))}/></div>
+                    {patamares.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'5px 7px'}} onClick={()=>setPatamares(p=>p.filter((_,j)=>j!==i))}>✕</button>}
+                  </div>
+                ))}
+                <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',textAlign:'right'}}>
+                  Patamares: {patamares.reduce((s,p)=>{return s+(parseFloat(p.comp)||0)*(parseFloat(p.larg)||0)*(parseFloat(p.esp)||0)/1000000;},0).toFixed(4)} m³
+                </div>
+              </div>
+              <div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <span style={{fontSize:11,fontWeight:700,color:'var(--text2)',textTransform:'uppercase',letterSpacing:1}}>Lances de Degraus</span>
+                  <button onClick={()=>setDegraus(d=>[...d,{pisada:'',espelho:'',largura:'',qtd:''}])} style={{fontSize:11,padding:'3px 10px',background:'none',border:'1px solid var(--border)',color:'var(--text2)',borderRadius:'var(--radius-sm)',cursor:'pointer'}}>+ Add</button>
+                </div>
+                {degraus.map((d,i)=>(
+                  <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 50px auto',gap:6,marginBottom:6,alignItems:'end'}}>
+                    <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Pisada[cm]</label><input className={s.formInput} type="number" placeholder="28" value={d.pisada} onChange={e=>setDegraus(p=>p.map((x,j)=>j===i?{...x,pisada:e.target.value}:x))}/></div>
+                    <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Espelho[cm]</label><input className={s.formInput} type="number" placeholder="17" value={d.espelho} onChange={e=>setDegraus(p=>p.map((x,j)=>j===i?{...x,espelho:e.target.value}:x))}/></div>
+                    <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Larg.[cm]</label><input className={s.formInput} type="number" placeholder="120" value={d.largura} onChange={e=>setDegraus(p=>p.map((x,j)=>j===i?{...x,largura:e.target.value}:x))}/></div>
+                    <div className={s.formGroup}><label className={s.formLabel}>Qtd</label><input className={s.formInput} type="number" placeholder="10" value={d.qtd} onChange={e=>setDegraus(p=>p.map((x,j)=>j===i?{...x,qtd:e.target.value}:x))}/></div>
+                    {degraus.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'5px 7px'}} onClick={()=>setDegraus(p=>p.filter((_,j)=>j!==i))}>✕</button>}
+                  </div>
+                ))}
+                <div style={{fontSize:11,fontWeight:700,color:'var(--accent)',textAlign:'right'}}>
+                  Degraus: {degraus.reduce((s,d)=>{return s+(parseFloat(d.pisada)||0)*(parseFloat(d.espelho)||0)/2*(parseFloat(d.largura)||0)*(parseFloat(d.qtd)||0)/1000000;},0).toFixed(4)} m³
+                </div>
+              </div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginTop:16,marginBottom:16}}>
+              <div>
+                <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume Total (Laje + Patamares + Degraus)</div>
                 <div style={{fontFamily:'var(--mono)',fontSize:28,fontWeight:700,color:volume>0?'var(--accent)':'var(--text3)'}}>{volume>0?volume.toFixed(4):'-'} <span style={{fontSize:14}}>m³</span></div>
               </div>
-              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>
-                + Adicionar ao Levantamento
-              </button>
+              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>+ Adicionar ao Levantamento</button>
             </div>
-            <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button>
-            </div>
+            <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button></div>
           </div>
         )}
       </div>
     </div>
   );
 }
+
 
 // ════════════════════════════════════════════════
 // MODAL: LEVANTAMENTO DE CONCRETO
