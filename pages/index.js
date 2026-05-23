@@ -1,4 +1,4 @@
-// v1779542914
+// v1779543327
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -2007,7 +2007,8 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                   {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Medida C [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mC} onChange={e=>setMC(e.target.value)}/></div>}
                   {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Medida D [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mD} onChange={e=>setMD(e.target.value)}/></div>}
                 </div>
-            </div>{/* fim campos */}
+              </div>{/* fim campos */}
+            </div>{/* fim grid 2col */}
 
             {/* Resultado */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
@@ -2023,6 +2024,43 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
             <div className={s.btnRow}>
               <button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button>
             </div>
+          </div>
+        )}
+
+
+        {/* RAMPA */}
+        {tipoPeca==='rampa'&&(
+          <div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
+              <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:16}}>
+                <div style={{fontSize:12,fontWeight:600,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:12,textAlign:'center'}}>Esquema — Rampa</div>
+                <svg viewBox="0 0 200 160" width={160} height={140} style={{display:'block',margin:'0 auto'}}>
+                  <rect x={20} y={20} width={140} height={100} fill="rgba(59,130,246,0.1)" stroke="var(--accent)" strokeWidth={2} rx={4}/>
+                  <line x1={20} y1={130} x2={160} y2={130} stroke="var(--blue)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={90} y={145} textAnchor="middle" fontSize={12} fill="var(--blue)" fontFamily="sans-serif" fontWeight="bold">Comprimento</text>
+                  <line x1={168} y1={20} x2={168} y2={120} stroke="var(--green)" strokeWidth={1.5} strokeDasharray="4,2"/>
+                  <text x={182} y={74} textAnchor="middle" fontSize={12} fill="var(--green)" fontFamily="sans-serif" fontWeight="bold" transform="rotate(90,182,74)">Largura</text>
+                  <text x={90} y={74} textAnchor="middle" fontSize={12} fill="var(--red)" fontFamily="sans-serif" fontWeight="bold">Esp. Laje</text>
+                </svg>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <div className={s.formGroup}><label className={s.formLabel}>Andar</label><AndarSelect value={andar} onChange={e=>setAndar(e.target.value)} config={config} pecas={pecas}/></div>
+                <div className={s.formGroup}><label className={s.formLabel}>Nome</label><input className={s.formInput} placeholder="ex: Rampa 01" value={nome} onChange={e=>setNome(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Comprimento [cm]</label><input className={s.formInput} type="number" placeholder="300" value={comprimento} onChange={e=>setComprimento(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={largura} onChange={e=>setLargura(e.target.value)}/></div>
+                <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Espessura da Laje [cm]</label><input className={s.formInput} type="number" placeholder="15" value={altLaje} onChange={e=>setAltLaje(e.target.value)}/></div>
+              </div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
+              <div>
+                <div style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Volume calculado</div>
+                <div style={{fontFamily:'var(--mono)',fontSize:28,fontWeight:700,color:volume>0?'var(--accent)':'var(--text3)'}}>{volume>0?volume.toFixed(4):'-'} <span style={{fontSize:14}}>m³</span></div>
+              </div>
+              <button className={s.btnPrimary} disabled={!nome||!andar||volume<=0} onClick={adicionar} style={{padding:'12px 24px',fontSize:14}}>
+                + Adicionar ao Levantamento
+              </button>
+            </div>
+            <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button></div>
           </div>
         )}
 
@@ -2173,7 +2211,8 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                     Degraus: {degraus.reduce((s,d)=>{const v=(parseFloat(d.pisada)||0)*(parseFloat(d.espelho)||0)/2*(parseFloat(d.largura)||0)*(parseFloat(d.qtd)||0)/1000000;return s+v;},0).toFixed(4)} m³
                   </div>
                 </div>
-            </div>{/* fim campos */}
+              </div>{/* fim campos */}
+            </div>{/* fim grid 2col */}
 
             {/* Resultado */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
@@ -2185,7 +2224,8 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                 + Adicionar ao Levantamento
               </button>
             </div>
-            <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button></div>
+            <div className={s.btnRow}><button className={s.btnSecondary} onClick={()=>setTipoPeca(null)}>← Voltar</button>
+            </div>
           </div>
         )}
       </div>
