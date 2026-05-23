@@ -1,4 +1,4 @@
-// v1779542333
+// v1779542722
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -2007,8 +2007,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                   {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Medida C [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mC} onChange={e=>setMC(e.target.value)}/></div>}
                   {(tipoP==='L'||tipoP==='T')&&<div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--purple)'}}>Medida D [cm]</label><input className={s.formInput} type="number" placeholder="0" value={mD} onChange={e=>setMD(e.target.value)}/></div>}
                 </div>
-              </div>
-            </div>
+            </div>{/* fim campos */}
 
             {/* Resultado */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
@@ -2071,10 +2070,8 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
         {/* ESCADA */}
         {tipoPeca==='escada'&&(
           <div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:16}}>
-
-              {/* Esquemas visuais lado a lado */}
-              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {/* Esquemas visuais — linha horizontal */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
 
                 {/* Esquema Laje Inclinada */}
                 <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:14}}>
@@ -2129,10 +2126,10 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                     <text x={110} y={105} textAnchor="middle" fontSize={9} fill="var(--text3)" fontFamily="sans-serif">× Qtd degraus</text>
                   </svg>
                 </div>
-              </div>
+            </div>{/* fim esquemas */}
 
-              {/* Campos de entrada */}
-              <div style={{display:'flex',flexDirection:'column',gap:14,overflowY:'auto',maxHeight:420}}>
+            {/* Campos de entrada */}
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
                 {/* Andar e Nome */}
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
@@ -2149,9 +2146,9 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                   </div>
                   {patamares.map((p,i)=>(
                     <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:8,marginBottom:8,alignItems:'end'}}>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Comp. [cm]</label><input className={s.formInput} type="number" placeholder="200" value={p.comp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,comp:e.target.value}:x))}/></div>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Larg. [cm]</label><input className={s.formInput} type="number" placeholder="120" value={p.larg} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,larg:e.target.value}:x))}/></div>
-                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Esp. [cm]</label><input className={s.formInput} type="number" placeholder="15" value={p.esp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,esp:e.target.value}:x))}/></div>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--blue)'}}>Comprimento [cm]</label><input className={s.formInput} type="number" placeholder="200" value={p.comp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,comp:e.target.value}:x))}/></div>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--green)'}}>Largura [cm]</label><input className={s.formInput} type="number" placeholder="120" value={p.larg} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,larg:e.target.value}:x))}/></div>
+                      <div className={s.formGroup}><label className={s.formLabel} style={{color:'var(--red)'}}>Espessura [cm]</label><input className={s.formInput} type="number" placeholder="15" value={p.esp} onChange={e=>setPatamares(prev=>prev.map((x,j)=>j===i?{...x,esp:e.target.value}:x))}/></div>
                       {patamares.length>1&&<button className={s.btnDanger} style={{marginBottom:2,padding:'6px 8px'}} onClick={()=>setPatamares(p=>p.filter((_,j)=>j!==i))}>✕</button>}
                     </div>
                   ))}
@@ -2216,8 +2213,7 @@ function ModalCalcConcreto({ open, onClose, levantamento, setLevantamento, confi
                     Degraus: {degraus.reduce((s,d)=>{const v=(parseFloat(d.pisada)||0)*(parseFloat(d.espelho)||0)/2*(parseFloat(d.largura)||0)*(parseFloat(d.qtd)||0)/1000000;return s+v;},0).toFixed(4)} m³
                   </div>
                 </div>
-              </div>
-            </div>
+            </div>{/* fim campos */}
 
             {/* Resultado */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'14px 20px',marginBottom:16}}>
