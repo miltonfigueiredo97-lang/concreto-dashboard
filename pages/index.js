@@ -1096,7 +1096,6 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
     setErro('');
     const linhasVal=linhas.filter(l=>l.pecaId&&parseFloat(l.pct)>0);
     if(!concId||!btId){setErro('Selecione concretagem e BT');return;}
-    if(!linhasVal.length){setErro('Adicione ao menos 1 peça');return;}
     setSalvando(true);
     try{
       await apiLancarBT({btConfigId:btId,concretagemId:concId,linhas:linhasVal,
@@ -1322,7 +1321,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                 {totalUsado>volPrevisto&&<div className={s.alertBlue} style={{marginTop:10}}>ℹ Volume acima do previsto — sobra inesperada de {fmt4(totalUsado-volPrevisto)} m³.</div>}
                 <div className={s.btnRow}>
                   <button className={s.btnSecondary} onClick={()=>setStep(1)}>← Voltar</button>
-                  <button className={s.btnPrimary} onClick={()=>{const v=linhas.filter(l=>l.pecaId&&parseFloat(l.pct)>0);if(!v.length){setErro('Adicione ao menos 1 peça');return;}setErro('');setStep(3);}}>Próximo →</button>
+                  <button className={s.btnPrimary} onClick={()=>{setErro('');setStep(3);}}>Próximo →</button>
                 </div>
               </div>
             )}
