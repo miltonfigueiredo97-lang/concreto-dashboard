@@ -1,4 +1,4 @@
-// v1779733000
+// v1779735050
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1324,22 +1324,36 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                       <select className={s.formSelect} value={l.pecaId} onChange={e=>updLinha(i,'pecaId',e.target.value)}>
                         <option value="">— selecione —</option>
                         {(()=>{
+                          // Lançamentos de outras BTs (excluir a BT atual)
+                          const lansOutrasBTs=lancamentos.filter(l=>l.btConfigId!==btId);
+                          // Peças desta concretagem com pctConcretagem aplicado
+                          const pcIds=pecaConc.filter(pc=>pc.concretagemId===concId);
                           const lista=(pecasConc.length>0?pecasConc:pecas)
                             .filter(p=>filtroTipoBT==='todos'||p.tipo===filtroTipoBT)
                             .filter(p=>!buscaBT||p.nome.toLowerCase().includes(buscaBT.toLowerCase()))
                             .filter(p=>{
                               if(!esconder100BT) return true;
-                              const pctJaLan=p.volume>0?Math.min(100,(volLancadoPeca(p.id,lancamentos)/p.volume)*100):0;
-                              return pctJaLan<100;
+                              // Volume desta peça nesta concretagem
+                              const pc=pcIds.find(x=>x.pecaId===p.id);
+                              const pctConc=pc?parseFloat(pc.pctConcretagem)/100:1;
+                              const volConc=p.volume*pctConc;
+                              // Quanto já foi lançado em outras BTs
+                              const jaLan=lansOutrasBTs.filter(l=>l.pecaId===p.id&&l.concretagemId===concId).reduce((s,l)=>s+l.volume,0);
+                              return jaLan<volConc*0.999; // 0.1% de margem
                             })
                             .sort((a,b)=>a.nome.localeCompare(b.nome));
                           return lista.map(p=>{
-                            const jalan=volLancadoPeca(p.id,lancamentos);
-                            const pctLan=p.volume>0?Math.min(100,(jalan/p.volume)*100):0;
-                            const restante=Math.max(0,p.volume-jalan);
-                            const label=pctLan>0
-                              ? `${p.nome} (${p.andar}) — ${fmt4(restante)} m³ restando [${fmt1(pctLan)}% já lançado]`
-                              : `${p.nome} (${p.andar}) — ${fmt4(p.volume)} m³`;
+                            // Volume desta peça proporcional à concretagem
+                            const pc=pcIds.find(x=>x.pecaId===p.id);
+                            const pctConc=pc?parseFloat(pc.pctConcretagem)/100:1;
+                            const volConc=+(p.volume*pctConc).toFixed(4);
+                            // Quanto já foi lançado em OUTRAS BTs
+                            const jaLan=lansOutrasBTs.filter(l=>l.pecaId===p.id&&l.concretagemId===concId).reduce((s,l)=>s+l.volume,0);
+                            const pctFeito=volConc>0?Math.min(100,(jaLan/volConc)*100):0;
+                            const restando=Math.max(0,volConc-jaLan);
+                            const label=pctFeito>0.5
+                              ? `${p.nome} (${p.andar}) — ${fmt4(restando)} m³ restando [${fmt1(pctFeito)}% já feito de ${fmt4(volConc)} m³]`
+                              : `${p.nome} (${p.andar}) — ${fmt4(volConc)} m³${pctConc<1?' ('+fmt1(pctConc*100)+'% desta conc.)':''}`;
                             return <option key={p.id} value={p.id}>{label}</option>;
                           });
                         })()}
@@ -2581,7 +2595,7 @@ export default function Home() {
                 <div className={s.panelTitle}>Progresso por Tipo
                   <span style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--text3)',fontWeight:400,marginLeft:6}}>▼ clique para ver peças</span>
                 </div>
-                <GraficoTipos pecas={pecasFiltOp} lancamentos={lancamentosOp}/>
+                <GraficoTipos pecas={filtroConc!=='todas'?pecasParaKPI.filter(p=>(filtroAndar==='todos'||p.andar===filtroAndar)&&(filtroTipoOp==='todos'||p.tipo===filtroTipoOp)):pecasFiltOp} lancamentos={lancamentosOp}/>
               </div>
 
               {/* Última BT + Status BTs */}
