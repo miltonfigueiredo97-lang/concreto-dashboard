@@ -1,4 +1,4 @@
-// v1779732683
+// v1779733000
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1046,6 +1046,8 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
   const [step,setStep]=useState(1);
   const [concId,setConcId]=useState('');
   const [filtroTipoBT,setFiltroTipoBT]=useState('todos');
+  const [buscaBT,setBuscaBT]=useState('');
+  const [esconder100BT,setEsconder100BT]=useState(false);
   const [btId,setBtId]=useState('');
   const [nfEdit,setNfEdit]=useState('');
   const [codEdit,setCodEdit]=useState('');
@@ -1060,7 +1062,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
   useEffect(()=>{
     if(!open) return;
     setModoLancamento('menu');setErro('');setConcId('');setBtId('');setStep(1);
-    setLinhas([{pecaId:'',pct:''}]);setSobra('');setPerda('');setPerdaCocho('');setFiltroTipoBT('todos');
+    setLinhas([{pecaId:'',pct:''}]);setSobra('');setPerda('');setPerdaCocho('');setFiltroTipoBT('todos');setBuscaBT('');setEsconder100BT(false);
     const now=new Date();
     setHora(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
   },[open]);
@@ -1277,6 +1279,14 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
 
             {step===2&&(
               <div>
+                {/* Busca + esconder 100% */}
+                <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}>
+                  <input className={s.formInput} placeholder="🔍 Buscar peça por nome..."
+                    value={buscaBT} onChange={e=>setBuscaBT(e.target.value)} style={{flex:1}}/>
+                  <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--text3)',cursor:'pointer',whiteSpace:'nowrap'}}>
+                    <input type="checkbox" checked={esconder100BT} onChange={e=>setEsconder100BT(e.target.checked)}/> Esconder 100%
+                  </label>
+                </div>
                 {/* Filtro por tipo de peça */}
                 {(()=>{
                   const ORDEM_T=['todos','Pilar','Viga','Laje','Escada','Rampa','Fundação','Cortina','Outro'];
@@ -1313,7 +1323,26 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                       {i===0&&<label className={s.formLabel}>Peça{pecasConc.length>0?' (desta concretagem)':''}</label>}
                       <select className={s.formSelect} value={l.pecaId} onChange={e=>updLinha(i,'pecaId',e.target.value)}>
                         <option value="">— selecione —</option>
-                        {(pecasConc.length>0?pecasConc:pecas).filter(p=>filtroTipoBT==='todos'||p.tipo===filtroTipoBT).sort((a,b)=>a.nome.localeCompare(b.nome)).map(p=><option key={p.id} value={p.id}>{p.nome} ({p.andar}) — {fmt4(p.volume)} m³</option>)}
+                        {(()=>{
+                          const lista=(pecasConc.length>0?pecasConc:pecas)
+                            .filter(p=>filtroTipoBT==='todos'||p.tipo===filtroTipoBT)
+                            .filter(p=>!buscaBT||p.nome.toLowerCase().includes(buscaBT.toLowerCase()))
+                            .filter(p=>{
+                              if(!esconder100BT) return true;
+                              const pctJaLan=p.volume>0?Math.min(100,(volLancadoPeca(p.id,lancamentos)/p.volume)*100):0;
+                              return pctJaLan<100;
+                            })
+                            .sort((a,b)=>a.nome.localeCompare(b.nome));
+                          return lista.map(p=>{
+                            const jalan=volLancadoPeca(p.id,lancamentos);
+                            const pctLan=p.volume>0?Math.min(100,(jalan/p.volume)*100):0;
+                            const restante=Math.max(0,p.volume-jalan);
+                            const label=pctLan>0
+                              ? `${p.nome} (${p.andar}) — ${fmt4(restante)} m³ restando [${fmt1(pctLan)}% já lançado]`
+                              : `${p.nome} (${p.andar}) — ${fmt4(p.volume)} m³`;
+                            return <option key={p.id} value={p.id}>{label}</option>;
+                          });
+                        })()}
                       </select>
                     </div>
                     <div className={s.formGroup} style={{width:100}}>
