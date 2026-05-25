@@ -1,4 +1,4 @@
-// v1779558728
+// v1779729463
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -704,7 +704,7 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
             {pecasFilt.length===0?<div className={s.empty}>Nenhuma peça.</div>
               :pecasFilt.map(p=>(
                 <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderBottom:'1px solid var(--border)'}}>
-                  <div style={{flex:1}}><div style={{fontWeight:600,fontSize:15}}>{p.nome}</div><div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:2}}>{p.tipo} · {p.andar} · {fmt4(p.volume)} m³</div></div>
+                  <div style={{flex:1}}><div style={{fontWeight:600,fontSize:15}}>{p.nome}</div><div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:2}}>{p.tipo} · {p.andar} · {fmt4(p.volume)} m³{(()=>{const pct=pctConcretado(p,lancamentos);return pct>0?<span style={{marginLeft:8,color:pct>=100?'var(--green)':'var(--accent)',fontWeight:700}}>{fmt1(pct)}% lançado</span>:null;})()}</div></div>
                   <button className={s.btnAction} style={{padding:'6px 14px',fontSize:12}} onClick={()=>abrirEditar(p)}>Editar</button>
                   <button className={s.btnDanger} onClick={()=>excluir(p)}>✕</button>
                 </div>
@@ -842,6 +842,8 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
   const [bts,setBts]=useState([]);
   const [filtroAndar,setFiltroAndar]=useState('todos');
   const [filtroTipo,setFiltroTipo]=useState('todos');
+  const [buscaPeca,setBuscaPeca]=useState('');
+  const [esconder100,setEsconder100]=useState(false);
   const [salvando,setSalvando]=useState(false);
   const [erro,setErro]=useState('');
   const genId=p=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
@@ -884,7 +886,13 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
 
   const volTotalVinculos=vinculos.reduce((s,v)=>{const p=pecas.find(x=>x.id===v.pecaId);return s+(p?(v.pctConcretagem/100)*p.volume:0);},0);
   const volTotalBTs=bts.reduce((s,b)=>s+(parseFloat(b.volumePrevisto)||0),0);
-  const pecasVisiveis=pecas.filter(p=>(filtroAndar==='todos'||p.andar===filtroAndar)&&(filtroTipo==='todos'||p.tipo===filtroTipo));
+  const pecasVisiveis=pecas.filter(p=>{
+    if(filtroAndar!=='todos'&&p.andar!==filtroAndar) return false;
+    if(filtroTipo!=='todos'&&p.tipo!==filtroTipo) return false;
+    if(buscaPeca&&!p.nome.toLowerCase().includes(buscaPeca.toLowerCase())) return false;
+    if(esconder100){const pct=pctConcretado(p,lancamentos);if(pct>=100) return false;}
+    return true;
+  });
 
   async function salvar(){
     if(!numero||!data){setErro('Preencha número e data');return;}
@@ -957,16 +965,22 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
                 <span style={{fontFamily:'var(--mono)',fontSize:13,color:'var(--accent)',fontWeight:700}}>{vinculos.length} peças · {fmt4(volTotalVinculos)} m³</span>
                 {filtroAndar!=='todos'&&<button className={s.btnAction} style={{padding:'6px 14px',fontSize:12}} onClick={()=>toggleAndar(filtroAndar)}>{pecas.filter(p=>p.andar===filtroAndar).every(p=>vinculos.find(v=>v.pecaId===p.id))?'Desmarcar tudo do andar':'Marcar tudo do andar'}</button>}
               </div>
-              <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
-                <select className={s.formSelect} style={{minWidth:160}} value={filtroAndar} onChange={e=>setFiltroAndar(e.target.value)}>{andares.map(a=><option key={a} value={a}>{a==='todos'?'Todos os andares':a}</option>)}</select>
-                <select className={s.formSelect} style={{minWidth:140}} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}>{tipos.map(t=><option key={t} value={t}>{t==='todos'?'Todos os tipos':t}</option>)}</select>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:6}}>
+                <select className={s.formSelect} value={filtroAndar} onChange={e=>setFiltroAndar(e.target.value)}>{andares.map(a=><option key={a} value={a}>{a==='todos'?'Todos os andares':a}</option>)}</select>
+                <select className={s.formSelect} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}>{tipos.map(t=><option key={t} value={t}>{t==='todos'?'Todos os tipos':t}</option>)}</select>
               </div>
-              <div style={{maxHeight:320,overflowY:'auto',border:'1px solid var(--border)'}}>
+              <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+                <input className={s.formInput} placeholder="🔍 Buscar por nome..." value={buscaPeca} onChange={e=>setBuscaPeca(e.target.value)} style={{flex:1}}/>
+                <label style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:'var(--text3)',cursor:'pointer',whiteSpace:'nowrap'}}>
+                  <input type="checkbox" checked={esconder100} onChange={e=>setEsconder100(e.target.checked)}/> Esconder 100%
+                </label>
+              </div>
+              <div style={{maxHeight:300,overflowY:'auto',border:'1px solid var(--border)'}}>
                 {pecasVisiveis.length===0?<div className={s.empty}>Nenhuma peça.</div>
                   :pecasVisiveis.map(p=>{const sel=!!vinculos.find(v=>v.pecaId===p.id);const vinc=vinculos.find(v=>v.pecaId===p.id);return(
                     <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderBottom:'1px solid var(--border)',background:sel?'rgba(232,162,37,0.06)':'transparent'}}>
                       <div onClick={()=>togglePeca(p.id)} style={{width:22,height:22,border:`2px solid ${sel?'var(--accent)':'var(--border2)'}`,background:sel?'var(--accent)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,fontSize:14,color:'#0e0f11',fontWeight:700,transition:'all 0.15s'}}>{sel?'✓':''}</div>
-                      <div style={{flex:1,cursor:'pointer'}} onClick={()=>togglePeca(p.id)}><div style={{fontWeight:600,fontSize:15}}>{p.nome}</div><div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:2}}>{p.tipo} · {p.andar} · {fmt4(p.volume)} m³</div></div>
+                      <div style={{flex:1,cursor:'pointer'}} onClick={()=>togglePeca(p.id)}><div style={{fontWeight:600,fontSize:15}}>{p.nome}</div><div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:2}}>{p.tipo} · {p.andar} · {fmt4(p.volume)} m³{(()=>{const pct=pctConcretado(p,lancamentos);return pct>0?<span style={{marginLeft:8,color:pct>=100?'var(--green)':'var(--accent)',fontWeight:700}}>{fmt1(pct)}% lançado</span>:null;})()}</div></div>
                       {sel&&<div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
                         <label style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)'}}>%</label>
                         <input type="number" min="1" max="100" step="1" value={vinc.pctConcretagem} onChange={e=>setPct(p.id,e.target.value)} onClick={e=>e.stopPropagation()} style={{width:64,background:'var(--surface2)',border:'1px solid var(--accent)',color:'var(--accent)',fontFamily:'var(--mono)',fontSize:13,padding:'6px 8px',outline:'none'}}/>
@@ -1039,13 +1053,14 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
   const [linhas,setLinhas]=useState([{pecaId:'',pct:''}]);
   const [sobra,setSobra]=useState('');
   const [perda,setPerda]=useState('');
+  const [perdaCocho,setPerdaCocho]=useState('');
   const [salvando,setSalvando]=useState(false);
   const [erro,setErro]=useState('');
 
   useEffect(()=>{
     if(!open) return;
     setModoLancamento('menu');setErro('');setConcId('');setBtId('');setStep(1);
-    setLinhas([{pecaId:'',pct:''}]);setSobra('');setPerda('');setFiltroTipoBT('todos');
+    setLinhas([{pecaId:'',pct:''}]);setSobra('');setPerda('');setPerdaCocho('');setFiltroTipoBT('todos');
     const now=new Date();
     setHora(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
   },[open]);
@@ -1099,7 +1114,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
     setSalvando(true);
     try{
       await apiLancarBT({btConfigId:btId,concretagemId:concId,linhas:linhasVal,
-        sobraCaminhao:parseFloat(sobra)||sobEstimada,perdaObra:parseFloat(perda)||0,
+        sobraCaminhao:parseFloat(sobra)||sobEstimada,perdaObra:parseFloat(perda)||0,perdaCocho:parseFloat(perdaCocho)||0,
         hora,pecas,notaFiscal:nfEdit,codigoBT:codEdit});
       onSalvo(modoLancamento==='editar'?`✓ BT-${btSel?.numero} atualizada!`:`✓ BT-${btSel?.numero} lançada!`);
       onClose();
@@ -1337,7 +1352,24 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                   </span>
                 </div>
                 {linhas.filter(l=>l.pecaId&&parseFloat(l.pct)>0).map((l,i)=>{const p=pecas.find(x=>x.id===l.pecaId);return<div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid var(--border)',fontFamily:'var(--mono)',fontSize:13}}><span style={{color:'var(--text)'}}>{p?p.nome:l.pecaId}</span><span style={{color:'var(--accent)',fontWeight:700}}>{l.pct}% → {fmt4(volLinha(l))} m³</span></div>;})}
-                <div className={s.formGrid} style={{marginTop:18}}>
+                {/* Cocho/Linha — só para BT-1 */}
+                {(btSel?.numero===1||btSel?.numero==='1')&&(
+                  <div style={{background:'rgba(245,197,24,0.06)',border:'1px solid rgba(245,197,24,0.25)',borderRadius:'var(--radius-sm)',padding:'12px 14px',marginTop:12,marginBottom:4}}>
+                    <div style={{fontSize:12,fontWeight:700,color:'var(--accent)',marginBottom:6}}>🚿 Perda Cocho + Linha (1ª BT)</div>
+                    <div style={{fontSize:11,color:'var(--text3)',marginBottom:8,lineHeight:1.5}}>
+                      Volume retido na linha e no cocho antes de chegar na laje — não é perda real da obra.<br/>
+                      Ex: previsto 10m³, cocho 1.5m³ → real lançado = 8.5m³, perda real = 2m³ (não 4.5m³)
+                    </div>
+                    <div className={s.formGroup}>
+                      <label className={s.formLabel} style={{color:'var(--accent)'}}>Volume Cocho + Linha [m³]</label>
+                      <input className={s.formInput} type="number" step="0.01" placeholder="ex: 1.500" value={perdaCocho} onChange={e=>setPerdaCocho(e.target.value)}/>
+                    </div>
+                    {parseFloat(perdaCocho)>0&&<div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginTop:6}}>
+                      Perda real = previsto − executado − cocho = <span style={{color:'var(--accent)',fontWeight:700}}>{fmt4(Math.max(0,volPrevisto-totalUsado-parseFloat(perdaCocho)))} m³</span>
+                    </div>}
+                  </div>
+                )}
+                <div className={s.formGrid} style={{marginTop:14}}>
                   <div className={s.formGroup}><label className={s.formLabel}>Sobra que foi embora (m³)</label><input className={s.formInput} type="number" step="0.0001" min="0" placeholder={`sugestão: ${fmt4(sobEstimada)}`} value={sobra} onChange={e=>setSobra(e.target.value)}/></div>
                   <div className={s.formGroup}><label className={s.formLabel}>Perda em obra (m³)</label><input className={s.formInput} type="number" step="0.0001" min="0" placeholder="0.0000" value={perda} onChange={e=>setPerda(e.target.value)}/></div>
                 </div>
@@ -2357,8 +2389,15 @@ export default function Home() {
   const tipos = TIPO_ORDEM.filter(t=>[...new Set(pecas.map(p=>p.tipo))].includes(t))
     .concat([...new Set(pecas.map(p=>p.tipo))].filter(t=>!TIPO_ORDEM.includes(t)).sort());
   // Filtrar peças pelo filtroConc para KPIs
+  const _vcsKPI = filtroConc==='todas' ? [] : pecaConc.filter(pc=>pc.concretagemId===filtroConc);
   const pecasParaKPI = filtroConc==='todas' ? pecas :
-    pecas.filter(p=>pecaConc.filter(pc=>pc.concretagemId===filtroConc).map(pc=>pc.pecaId).includes(p.id));
+    pecas
+      .filter(p=>_vcsKPI.some(pc=>pc.pecaId===p.id))
+      .map(p=>{
+        const vc = _vcsKPI.find(pc=>pc.pecaId===p.id);
+        const pct = (vc && parseFloat(vc.pctConcretagem)>0) ? parseFloat(vc.pctConcretagem) : 100;
+        return {...p, volume: +(p.volume * pct / 100).toFixed(6)};
+      });
   const btsParaKPI = filtroConc==='todas' ? btsConfig : btsConfig.filter(b=>b.concretagemId===filtroConc);
   const lansParaKPI = filtroConc==='todas' ? lancamentos : lancamentos.filter(l=>l.concretagemId===filtroConc);
   const kpis    = calcKPIs(pecasParaKPI,lansParaKPI,btsParaKPI,filtroAndar);
@@ -2455,10 +2494,21 @@ export default function Home() {
               setFiltroConc={setFiltroConc}
             />
 
+            {/* DEBUG VISUAL TEMPORÁRIO */}
+            {filtroConc!=='todas'&&(
+              <div style={{background:'rgba(255,0,0,0.1)',border:'1px solid red',padding:'8px 12px',marginBottom:8,fontSize:11,fontFamily:'monospace'}}>
+                filtroConc: {filtroConc} | 
+                pecaConc matches: {pecaConc.filter(pc=>pc.concretagemId===filtroConc).length} |
+                pecaConc total: {pecaConc.length} |
+                concretagem IDs no pecaConc: {[...new Set(pecaConc.map(pc=>pc.concretagemId))].join(', ')}
+              </div>
+            )}
+
             {/* KPIs */}
             <div className={s.kpiGrid}>
               {[
-                {label:'Volume Total do Projeto', value:fmt4(kpis.totalVol), unit:'m³', sub:`${pecas.length} peças cadastradas`, icon:'📦', v:''},
+                {label:'Volume Total do Projeto', value:fmt4(kpis.totalVol), unit:'m³', sub:filtroConc==='todas'?`${pecas.length} peças cadastradas`:`${pecasParaKPI.length} peças nesta concretagem`, icon:'📦', v:''},
+                {label:'Vol. Previsto (proj.×1.1)', value:fmt4(kpis.totalVol*1.1), unit:'m³', sub:'volume projeto + 10% perda', icon:'📊', v:'blue'},
                 {label:'Volume Real Concretado',  value:fmt4(kpis.concVol),  unit:'m³', sub:`${fmt1(kpis.pctConc)}% do projeto`,   icon:'✅', v:'green'},
                 {label:'Faltando (Real)',         value:fmt4(kpis.realFaltando), unit:'m³', sub:'proj. − real concretado', icon:'⚠️', v:'red'},
                 {label:'Faltando (Projeto)',      value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs executadas', icon:'📊', v:'blue'},
