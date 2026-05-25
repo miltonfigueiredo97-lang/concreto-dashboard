@@ -1,4 +1,4 @@
-// v1779730111
+// v1779731089
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -2493,16 +2493,6 @@ export default function Home() {
               filtroConc={filtroConc}
               setFiltroConc={setFiltroConc}
             />
-
-            {/* DEBUG VISUAL TEMPORÁRIO */}
-            {filtroConc!=='todas'&&(
-              <div style={{background:'rgba(255,0,0,0.1)',border:'1px solid red',padding:'8px 12px',marginBottom:8,fontSize:11,fontFamily:'monospace'}}>
-                filtroConc: {filtroConc} | 
-                pecaConc matches: {pecaConc.filter(pc=>pc.concretagemId===filtroConc).length} |
-                pecaConc total: {pecaConc.length} |
-                concretagem IDs no pecaConc: {[...new Set(pecaConc.map(pc=>pc.concretagemId))].join(', ')}
-              </div>
-            )}
 
             {/* KPIs */}
             <div className={s.kpiGrid}>
