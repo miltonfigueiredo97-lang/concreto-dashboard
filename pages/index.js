@@ -1,4 +1,4 @@
-// v1779736485
+// v1779882627
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1100,6 +1100,16 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
   },[concId,pecaConc,pecas]);
 
   const volLinha=l=>{const p=pecas.find(x=>x.id===l.pecaId);const pct=parseFloat(l.pct);return p&&!isNaN(pct)?(pct/100)*p.volume:0;};
+  // Calcular excesso por peça no lançamento atual
+  const excessoLinha=l=>{
+    if(!l.pecaId||!l.pct) return 0;
+    const p=pecas.find(x=>x.id===l.pecaId); if(!p) return 0;
+    const lansOutras=lancamentos.filter(x=>x.pecaId===l.pecaId&&x.btConfigId!==btId);
+    const jaLan=lansOutras.reduce((s,x)=>s+x.volume,0);
+    const volEsta=(parseFloat(l.pct)/100)*p.volume;
+    return Math.max(0,jaLan+volEsta-p.volume);
+  };
+  const temExcesso=linhas.some(l=>excessoLinha(l)>0.001);
   const totalUsado=linhas.reduce((s,l)=>s+volLinha(l),0);
   const volPrevisto=btSel?.volumePrevisto||0;
   const sobEstimada=Math.max(0,volPrevisto-totalUsado);
@@ -1376,7 +1386,19 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                     🗑 Zerar tudo
                   </button>
                 </div>
-                {totalUsado>volPrevisto&&<div className={s.alertBlue} style={{marginTop:10}}>ℹ Volume acima do previsto — sobra inesperada de {fmt4(totalUsado-volPrevisto)} m³.</div>}
+                {totalUsado>volPrevisto&&<div className={s.alertBlue} style={{marginTop:10}}>ℹ Volume acima do BT previsto — sobra inesperada de {fmt4(totalUsado-volPrevisto)} m³.</div>}
+                {temExcesso&&(
+                  <div style={{background:'rgba(239,68,68,0.1)',border:'1px solid var(--red)',borderRadius:'var(--radius-sm)',padding:'10px 14px',marginTop:10}}>
+                    <div style={{color:'var(--red)',fontWeight:700,fontSize:13,marginBottom:6}}>⚠ Uma ou mais peças vão ultrapassar 100% do projeto:</div>
+                    {linhas.filter(l=>excessoLinha(l)>0.001).map((l,i)=>{
+                      const p=pecas.find(x=>x.id===l.pecaId);
+                      return p?<div key={i} style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--red)',marginTop:4}}>
+                        {p.nome}: excesso de +{fmt4(excessoLinha(l))} m³
+                      </div>:null;
+                    })}
+                    <div style={{fontSize:11,color:'var(--text3)',marginTop:6}}>Reduza o % dessas peças ou corrija os lançamentos anteriores.</div>
+                  </div>
+                )}
                 <div className={s.btnRow}>
                   <button className={s.btnSecondary} onClick={()=>setStep(1)}>← Voltar</button>
                   <button className={s.btnPrimary} onClick={()=>{setErro('');setStep(3);}}>Próximo →</button>
@@ -2557,6 +2579,43 @@ export default function Home() {
                 </div>
               ))}
             </div>
+
+            {/* ALERTA: peças com excesso de lançamento */}
+            {(()=>{
+              const exc=kpis.pecasExcesso||[];
+              if(!exc.length) return null;
+              return(
+                <div style={{background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.4)',borderRadius:'var(--radius-sm)',padding:'14px 18px',marginBottom:16}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                    <span style={{fontSize:18}}>⚠️</span>
+                    <span style={{fontWeight:700,color:'var(--red)',fontSize:14}}>
+                      {exc.length} peça{exc.length>1?'s':''} lançada{exc.length>1?'s':''} além de 100% do projeto
+                    </span>
+                    <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginLeft:'auto'}}>
+                      Excesso total: {fmt4(exc.reduce((s,p)=>s+p.excesso,0))} m³
+                    </span>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                    {exc.map(p=>(
+                      <div key={p.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 12px',background:'rgba(239,68,68,0.06)',borderRadius:'var(--radius-sm)',borderLeft:'3px solid var(--red)'}}>
+                        <div>
+                          <span style={{fontWeight:600,fontSize:13,color:'var(--text)'}}>{p.nome}</span>
+                          <span style={{fontSize:12,color:'var(--text3)',marginLeft:8}}>{p.andar} · {p.tipo}</span>
+                        </div>
+                        <div style={{fontFamily:'var(--mono)',fontSize:12,textAlign:'right'}}>
+                          <span style={{color:'var(--text2)'}}>Projeto: {fmt4(p.volume)} m³</span>
+                          <span style={{color:'var(--red)',fontWeight:700,marginLeft:12}}>Lançado: {fmt4(p.lanTotal)} m³</span>
+                          <span style={{background:'var(--red)',color:'#fff',fontWeight:700,fontSize:11,padding:'2px 8px',borderRadius:4,marginLeft:8}}>+{fmt4(p.excesso)} m³ a mais</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{marginTop:10,fontSize:11,color:'var(--text3)'}}>
+                    ℹ Corrija os lançamentos dessas peças — o Volume Real Concretado foi limitado ao projeto.
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* LAUNCH BAR */}
             <div className={s.launchBar}>
