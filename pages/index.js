@@ -1,4 +1,4 @@
-// v1779911611
+// v1779912324
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -256,7 +256,7 @@ function GraficoTipos({ pecas, lancamentos, btsConfig, concretagens, pecaConc })
                   const pct=pctConcretado(p,lancamentos);
                   const falt=Math.max(0,p.volume-vc);
                   return(
-                    <div key={p.id} onClick={()=>setPecaSel(p)}
+                    <div key={p.id} onClick={e=>{e.stopPropagation();setPecaSel(p);}}
                       style={{padding:'12px 18px',borderBottom:'1px solid var(--border)',cursor:'pointer',transition:'background 0.15s'}}
                       onMouseOver={e=>e.currentTarget.style.background='rgba(245,197,24,0.05)'}
                       onMouseOut={e=>e.currentTarget.style.background='transparent'}>
