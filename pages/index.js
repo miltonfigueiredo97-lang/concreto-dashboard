@@ -1,4 +1,4 @@
-// v1779912529
+// v1779913132
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -272,7 +272,7 @@ function GraficoTipos({ pecas, lancamentos, btsConfig, concretagens, pecaConc })
                         <div style={{height:'100%',width:`${Math.min(100,pct)}%`,background:pct>=100?'var(--green)':'var(--accent)'}}/>
                       </div>
                       <div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>
-                        feito {fmt4(vc)} m³ · faltando <span style={{color:'var(--red)'}}>{fmt4(falt)} m³</span> · projeto {fmt4(p.volume)} m³
+                        feito {fmt4(vc)} m³ · faltando <span style={{color:falt<0.005?'var(--green)':'var(--red)'}}>{falt<0.005?'0':fmt4(falt)} m³</span> · projeto {fmt4(p.volume)} m³
                       </div>
                     </div>
                   );
@@ -289,7 +289,7 @@ function GraficoTipos({ pecas, lancamentos, btsConfig, concretagens, pecaConc })
 // ════════════════════════════════════════════════
 // GRÁFICO: STATUS BTs
 // ════════════════════════════════════════════════
-function GraficoBTs({ btsConfig, lancamentos, concretagens }) {
+function GraficoBTs({ btsConfig, lancamentos, concretagens, onAbrirBT }) {
   const concs=[...concretagens].sort((a,b)=>a.numero-b.numero);
   if(!concs.length) return <div className={s.empty}>Nenhuma concretagem configurada</div>;
   return(
@@ -318,7 +318,11 @@ function GraficoBTs({ btsConfig, lancamentos, concretagens }) {
                 const acima=usado>b.volumePrevisto;
                 const perdaCam=b.volumePrevisto-usado;
                 return(
-                  <div key={b.id} style={{background:'var(--surface2)',border:`1px solid ${lancada?acima?'var(--blue)':'var(--green)':'var(--border)'}`,padding:'12px 16px',minWidth:100}}>
+                  <div key={b.id}
+                    onClick={()=>onAbrirBT&&onAbrirBT(c.id, b.id)}
+                    style={{background:'var(--surface2)',border:`1px solid ${lancada?acima?'var(--blue)':'var(--green)':'var(--border)'}`,padding:'12px 16px',minWidth:100,cursor:'pointer',transition:'filter 0.15s'}}
+                    onMouseOver={e=>e.currentTarget.style.filter='brightness(1.2)'}
+                    onMouseOut={e=>e.currentTarget.style.filter='none'}>
                     <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:4}}>BT-{b.numero}</div>
                     <div style={{fontFamily:'var(--cond)',fontWeight:700,fontSize:22,color:lancada?acima?'var(--blue)':'var(--green)':'var(--text3)'}}>{lancada?fmt4(usado):'—'}</div>
                     <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginTop:2}}>/ {fmt4(b.volumePrevisto)} m³</div>
@@ -1144,7 +1148,7 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
 // ════════════════════════════════════════════════
 // MODAL: LANÇAR / EDITAR BT
 // ════════════════════════════════════════════════
-function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig, lancamentos, onSalvo }) {
+function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig, lancamentos, onSalvo, btPreSel }) {
   const [modoLancamento, setModoLancamento] = useState('menu'); // menu | nova | editar
   const [step,setStep]=useState(1);
   const [concId,setConcId]=useState('');
@@ -1164,10 +1168,19 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
 
   useEffect(()=>{
     if(!open) return;
-    setModoLancamento('menu');setErro('');setConcId('');setBtId('');setStep(1);
     setLinhas([{pecaId:'',pct:''}]);setSobra('');setPerda('');setPerdaCocho('');setFiltroTipoBT('todos');setBuscaBT('');setEsconder100BT(false);
     const now=new Date();
     setHora(`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`);
+    setErro('');
+    // Se veio pré-seleção de BT, abrir direto na edição
+    if(btPreSel?.concId && btPreSel?.btId) {
+      setConcId(btPreSel.concId);
+      setBtId(btPreSel.btId);
+      setModoLancamento('menu');
+      setStep(1);
+    } else {
+      setModoLancamento('menu');setConcId('');setBtId('');setStep(1);
+    }
   },[open]);
 
   const btsConc=btsConfig.filter(b=>b.concretagemId===concId).sort((a,b)=>a.numero-b.numero);
@@ -2529,6 +2542,7 @@ export default function Home() {
   const [modalPecas,setModalPecas]=useState(false);
   const [modalConc,setModalConc]=useState(false);
   const [modalBT,setModalBT]=useState(false);
+  const [btPreSel,setBtPreSel]=useState({concId:'',btId:''});
   const [modalConfig,setModalConfig]=useState(false);
   const [modalCalc,setModalCalc]=useState(false);
   const [modalLevantamento,setModalLevantamento]=useState(false);
@@ -2809,6 +2823,7 @@ export default function Home() {
                         const ids=pecaConc.filter(pc=>pc.concretagemId===c.id).map(pc=>pc.pecaId);
                         return pecas.some(p=>ids.includes(p.id)&&p.andar===filtroAndar);
                       }) : concretagens}
+                    onAbrirBT={(concId,btId)=>{setBtPreSel({concId,btId});setModalBT(true);}}
                   />
                 </div>
               </div>
@@ -3044,7 +3059,7 @@ export default function Home() {
         }}/>
       <ModalPecas       open={modalPecas}  onClose={()=>setModalPecas(false)}  pecas={pecas} onSalvo={msg=>showToast(msg,'ok')}/>
       <ModalConcretagem open={modalConc}   onClose={()=>setModalConc(false)}   pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} onSalvo={msg=>showToast(msg,'ok')}/>
-      <ModalLancarBT    open={modalBT}     onClose={()=>setModalBT(false)}     pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} lancamentos={lancamentos} onSalvo={msg=>showToast(msg,'ok')}/>
+      <ModalLancarBT    open={modalBT}     onClose={()=>{setModalBT(false);setBtPreSel({concId:'',btId:''});}}     pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} lancamentos={lancamentos} onSalvo={msg=>showToast(msg,'ok')} btPreSel={btPreSel}/>
       <ModalConfig      open={modalConfig} onClose={()=>setModalConfig(false)} pecas={pecas} config={config} onSalvar={salvarConfig}/>
       <Toast msg={toast.msg} tipo={toast.tipo} onDone={()=>setToast({msg:'',tipo:'ok'})}/>
     </div>
