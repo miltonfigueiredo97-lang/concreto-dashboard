@@ -1,4 +1,4 @@
-// v1779913132
+// v1779913399
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1199,7 +1199,11 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
     // Pré-preenche linhas com os dados existentes
     const ls = lancamentosbt.map(l => {
       const peca = pecas.find(p=>p.id===l.pecaId);
-      const pct  = peca&&peca.volume>0 ? (l.volume/peca.volume*100).toFixed(2) : '';
+      if(!peca||peca.volume<=0) return { pecaId:l.pecaId, pct:'' };
+      const pctRaw = l.volume/peca.volume*100;
+      // Arredondar para inteiro se diferença < 0.1 (ex: 99.99 → 100, 50.001 → 50)
+      const pctInt = Math.round(pctRaw);
+      const pct = Math.abs(pctRaw - pctInt) < 0.1 ? String(pctInt) : pctRaw.toFixed(2);
       return { pecaId:l.pecaId, pct };
     });
     setLinhas(ls.length?ls:[{pecaId:'',pct:''}]);
@@ -1487,7 +1491,15 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                     </div>
                     <div className={s.formGroup} style={{width:100}}>
                       {i===0&&<label className={s.formLabel}>% nesta BT</label>}
-                      <input className={s.formInput} type="number" min="0.01" max="100" step="0.5" placeholder="%" value={l.pct} onChange={e=>updLinha(i,'pct',e.target.value)}/>
+                      <input className={s.formInput} type="number" min="0.01" max="100" step="0.5" placeholder="%" value={l.pct} 
+                      onChange={e=>updLinha(i,'pct',e.target.value)}
+                      onBlur={e=>{
+                        const v=parseFloat(e.target.value);
+                        if(!isNaN(v)){
+                          const rounded=Math.round(v);
+                          if(Math.abs(v-rounded)<0.1) updLinha(i,'pct',String(rounded));
+                        }
+                      }}/>
                     </div>
                     <div className={s.formGroup} style={{width:100}}>
                       {i===0&&<label className={s.formLabel}>m³</label>}
