@@ -1,4 +1,4 @@
-// v1779913399
+// v1779915679
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -151,7 +151,8 @@ function ModalDetalhePeca({ peca, lancamentos, btsConfig, concretagens, onClose 
             </div>
             <div style={{textAlign:'center'}}>
               <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Concretado</div>
-              <div style={{fontFamily:'var(--mono)',fontSize:20,fontWeight:700,color:pct>=100?'var(--green)':'var(--accent)'}}>{fmt4(vc)}<span style={{fontSize:11,marginLeft:3}}>m³</span></div>
+              <div style={{fontFamily:'var(--mono)',fontSize:20,fontWeight:700,color:vc>p.volume*1.001?'var(--red)':pct>=100?'var(--green)':'var(--accent)'}}>{fmt4(Math.min(p.volume,volLancadoPeca(p.id,lancamentos)))}<span style={{fontSize:11,marginLeft:3}}>m³</span></div>
+              {vc>p.volume*1.001&&<div style={{fontSize:10,color:'var(--red)',marginTop:2}}>+{fmt4(vc-p.volume)} m³ excesso</div>}
             </div>
             <div style={{textAlign:'center'}}>
               <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Faltando</div>
@@ -1482,8 +1483,8 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
                             const pctFeito=volConc>0?Math.min(100,(jaLan/volConc)*100):0;
                             const restando=Math.max(0,volConc-jaLan);
                             const label=pctFeito>0.5
-                              ? `${p.nome} (${p.andar}) — ${fmt4(restando)} m³ restando [${fmt1(pctFeito)}% já feito de ${fmt4(volConc)} m³]`
-                              : `${p.nome} (${p.andar}) — ${fmt4(volConc)} m³${pctConc<1?' ('+fmt1(pctConc*100)+'% desta conc.)':''}`;
+                              ? `${p.nome} (${p.andar}) — ${fmt4(restando)} m³ rest. [${fmt1(pctFeito)}% feito de ${fmt4(volConc)} m³${pctConc<1?' = '+fmt1(pctConc*100)+'% do proj.':''}]`
+                              : `${p.nome} (${p.andar}) — ${fmt4(volConc)} m³${pctConc<1?' ['+fmt4(p.volume)+' m³ proj. × '+fmt1(pctConc*100)+'% desta conc.]':''}`;
                             return <option key={p.id} value={p.id}>{label}</option>;
                           });
                         })()}
