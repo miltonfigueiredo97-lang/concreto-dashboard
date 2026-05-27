@@ -1,4 +1,4 @@
-// v1779912324
+// v1779912529
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -221,6 +221,7 @@ function GraficoTipos({ pecas, lancamentos, btsConfig, concretagens, pecaConc })
     });
   return(
     <div>
+      <ModalDetalhePeca peca={pecaSel} lancamentos={lancamentos} btsConfig={btsConfig} concretagens={concretagens} onClose={()=>setPecaSel(null)}/>
       {dados.map((t,i)=>{
         const open = aberto===t.tipo;
         return(
@@ -366,10 +367,7 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
 
   return(
     <div>
-      {/* MODAL DETALHE DA PEÇA */}
-      <ModalDetalhePeca peca={pecaSel} lancamentos={lancamentos} btsConfig={btsConfig} concretagens={concretagens} onClose={()=>setPecaSel(null)}/>
-
-            {/* Filtro por tipo */}
+           {/* Filtro por tipo */}
       <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
         {tipos.map(t=>(
           <button key={t} onClick={()=>setFiltroTipo(t)} style={{
