@@ -1,4 +1,4 @@
-// v1779911033
+// v1779911611
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -113,6 +113,101 @@ function DonutChart({ dados, total, size=120, thickness=20, label }) {
 // ════════════════════════════════════════════════
 // GRÁFICO: PROGRESSO POR TIPO (clicável)
 // ════════════════════════════════════════════════
+function ModalDetalhePeca({ peca, lancamentos, btsConfig, concretagens, onClose }) {
+  if(!peca) return null;
+  const p = peca;
+  const vc = Math.min(p.volume, volLancadoPeca(p.id, lancamentos));
+  const pct = pctConcretado(p, lancamentos);
+  const falt = Math.max(0, p.volume - vc);
+  const lansP = lancamentos.filter(l => l.pecaId === p.id);
+  // Agrupar por concretagem
+  const byConc = {};
+  lansP.forEach(l => {
+    const cid = l.concretagemId || '?';
+    if(!byConc[cid]) byConc[cid] = { conc: concretagens?.find(c=>c.id===cid), bts: [] };
+    const bt = btsConfig?.find(b => b.id === l.btConfigId);
+    const pctBT = p.volume > 0 ? (l.volume / p.volume * 100) : 0;
+    byConc[cid].bts.push({ l, bt, pctBT });
+  });
+  return(
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
+      onClick={onClose}>
+      <div style={{background:'var(--surface)',border:'1px solid var(--border2)',borderRadius:'var(--radius)',maxWidth:560,width:'92%',maxHeight:'85vh',overflowY:'auto'}}
+        onClick={e=>e.stopPropagation()}>
+        {/* Header */}
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+          <div>
+            <div style={{fontFamily:'var(--cond)',fontWeight:800,fontSize:22,letterSpacing:1,color:'var(--text)'}}>{p.nome}</div>
+            <div style={{fontSize:12,color:'var(--text3)',marginTop:4}}>{p.tipo} · {p.andar}</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:'var(--text3)',fontSize:20,cursor:'pointer',padding:'0 4px',lineHeight:1}}>✕</button>
+        </div>
+        {/* KPIs */}
+        <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16,marginBottom:16}}>
+            <div style={{textAlign:'center'}}>
+              <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Projeto</div>
+              <div style={{fontFamily:'var(--mono)',fontSize:20,fontWeight:700,color:'var(--text)'}}>{fmt4(p.volume)}<span style={{fontSize:11,marginLeft:3}}>m³</span></div>
+            </div>
+            <div style={{textAlign:'center'}}>
+              <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Concretado</div>
+              <div style={{fontFamily:'var(--mono)',fontSize:20,fontWeight:700,color:pct>=100?'var(--green)':'var(--accent)'}}>{fmt4(vc)}<span style={{fontSize:11,marginLeft:3}}>m³</span></div>
+            </div>
+            <div style={{textAlign:'center'}}>
+              <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Faltando</div>
+              <div style={{fontFamily:'var(--mono)',fontSize:20,fontWeight:700,color:falt>0?'var(--red)':'var(--green)'}}>{fmt4(falt)}<span style={{fontSize:11,marginLeft:3}}>m³</span></div>
+            </div>
+          </div>
+          <div style={{height:10,background:'var(--surface2)',borderRadius:5,overflow:'hidden',marginBottom:6}}>
+            <div style={{height:'100%',width:`${Math.min(100,pct)}%`,background:pct>=100?'var(--green)':'var(--accent)',transition:'width 0.6s',borderRadius:5}}/>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>
+            <span>0%</span>
+            <span style={{fontWeight:800,fontSize:16,color:pct>=100?'var(--green)':'var(--accent)'}}>{fmt1(pct)}%</span>
+            <span>100%</span>
+          </div>
+        </div>
+        {/* Histórico */}
+        <div style={{padding:'20px 24px'}}>
+          <div style={{fontFamily:'var(--cond)',fontWeight:700,fontSize:12,letterSpacing:1.5,color:'var(--text3)',textTransform:'uppercase',marginBottom:14}}>Histórico de Lançamentos</div>
+          {lansP.length===0
+            ?<div style={{color:'var(--text3)',fontSize:13,textAlign:'center',padding:'24px 0'}}>Nenhum lançamento para esta peça</div>
+            :Object.values(byConc).map((g,gi)=>(
+              <div key={gi} style={{marginBottom:18}}>
+                <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:10,paddingBottom:6,borderBottom:'1px solid var(--border)'}}>
+                  CONCRETAGEM Nº{g.conc?.numero||'?'} — {g.conc?.data||''}{g.conc?.descricao?' | '+g.conc.descricao:''}
+                </div>
+                {g.bts.map((d,i)=>{
+                  const acima = d.l.volume > p.volume;
+                  return(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',marginBottom:6,border:`1px solid ${acima?'var(--red)':'var(--border)'}`}}>
+                      <div style={{fontFamily:'var(--mono)',fontSize:18,fontWeight:700,color:'var(--accent)',minWidth:54}}>BT-{d.bt?.numero||'?'}</div>
+                      <div style={{flex:1}}>
+                        <div style={{height:6,background:'var(--surface)',borderRadius:3,overflow:'hidden',marginBottom:4}}>
+                          <div style={{height:'100%',width:`${Math.min(100,d.pctBT)}%`,background:acima?'var(--red)':d.pctBT>=100?'var(--green)':'var(--accent)',borderRadius:3}}/>
+                        </div>
+                        <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',display:'flex',justifyContent:'space-between'}}>
+                          <span>{fmt4(d.l.volume)} m³</span>
+                          <span style={{color:acima?'var(--red)':d.pctBT>=100?'var(--green)':'var(--accent)',fontWeight:700}}>{fmt1(d.pctBT)}% desta peça</span>
+                        </div>
+                      </div>
+                      {acima&&<span style={{background:'var(--red)',color:'#fff',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,whiteSpace:'nowrap'}}>+{fmt4(d.l.volume-p.volume)} m³</span>}
+                    </div>
+                  );
+                })}
+                <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',textAlign:'right',marginTop:6}}>
+                  Total: <span style={{color:'var(--accent)',fontWeight:700}}>{fmt4(g.bts.reduce((s,d)=>s+d.l.volume,0))} m³</span>
+                  {' · '}{fmt1(p.volume>0?g.bts.reduce((s,d)=>s+d.l.volume,0)/p.volume*100:0)}% da peça
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GraficoTipos({ pecas, lancamentos, btsConfig, concretagens, pecaConc }) {
   const [aberto, setAberto] = useState(null);
   const [pecaSel, setPecaSel] = useState(null); // modal detalhe
@@ -272,107 +367,9 @@ function GraficoAndares({ pecas, lancamentos, ordemAndares, indicePerda }) {
   return(
     <div>
       {/* MODAL DETALHE DA PEÇA */}
-      {pecaSel&&(()=>{
-        const p=pecaSel;
-        const vc=Math.min(p.volume,volLancadoPeca(p.id,lancamentos));
-        const pct=pctConcretado(p,lancamentos);
-        const falt=Math.max(0,p.volume-vc);
-        // BTs que lançaram esta peça
-        const lansP=lancamentos.filter(l=>l.pecaId===p.id);
-        const btsDet=lansP.map(l=>{
-          const bt=btsConfig?.find(b=>b.id===l.btConfigId);
-          const conc=concretagens?.find(c=>c.id===l.concretagemId);
-          const pctBT=p.volume>0?(l.volume/p.volume*100):0;
-          return {l,bt,conc,pctBT};
-        }).sort((a,b)=>(a.bt?.numero||0)-(b.bt?.numero||0));
-        // Agrupadas por concretagem
-        const byConc={};
-        btsDet.forEach(d=>{
-          const cid=d.conc?.id||'?';
-          if(!byConc[cid]) byConc[cid]={conc:d.conc,bts:[]};
-          byConc[cid].bts.push(d);
-        });
-        return(
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center'}}
-            onClick={()=>setPecaSel(null)}>
-            <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--radius)',maxWidth:560,width:'90%',maxHeight:'85vh',overflowY:'auto',padding:0}}
-              onClick={e=>e.stopPropagation()}>
-              {/* Header */}
-              <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                <div>
-                  <div style={{fontFamily:'var(--cond)',fontWeight:800,fontSize:22,letterSpacing:1,color:'var(--text)'}}>{p.nome}</div>
-                  <div style={{fontSize:12,color:'var(--text3)',marginTop:4}}>{p.tipo} · {p.andar}</div>
-                </div>
-                <button onClick={()=>setPecaSel(null)} style={{background:'none',border:'none',color:'var(--text3)',fontSize:20,cursor:'pointer',padding:'0 4px',lineHeight:1}}>✕</button>
-              </div>
-              {/* Barra de progresso geral */}
-              <div style={{padding:'20px 24px',borderBottom:'1px solid var(--border)'}}>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16,marginBottom:16}}>
-                  <div style={{textAlign:'center'}}>
-                    <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Projeto</div>
-                    <div style={{fontFamily:'var(--mono)',fontSize:20,fontWeight:700,color:'var(--text)'}}>{fmt4(p.volume)}<span style={{fontSize:12,marginLeft:3}}>m³</span></div>
-                  </div>
-                  <div style={{textAlign:'center'}}>
-                    <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Concretado</div>
-                    <div style={{fontFamily:'var(--mono)',fontSize:20,fontWeight:700,color:pct>=100?'var(--green)':'var(--accent)'}}>{fmt4(vc)}<span style={{fontSize:12,marginLeft:3}}>m³</span></div>
-                  </div>
-                  <div style={{textAlign:'center'}}>
-                    <div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:1,marginBottom:4}}>Faltando</div>
-                    <div style={{fontFamily:'var(--mono)',fontSize:20,fontWeight:700,color:falt>0?'var(--red)':'var(--green)'}}>{fmt4(falt)}<span style={{fontSize:12,marginLeft:3}}>m³</span></div>
-                  </div>
-                </div>
-                <div style={{height:10,background:'var(--surface2)',borderRadius:5,overflow:'hidden',marginBottom:8}}>
-                  <div style={{height:'100%',width:`${Math.min(100,pct)}%`,background:pct>=100?'var(--green)':'var(--accent)',transition:'width 0.8s',borderRadius:5}}/>
-                </div>
-                <div style={{display:'flex',justifyContent:'space-between',fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>
-                  <span>0%</span>
-                  <span style={{fontWeight:700,color:pct>=100?'var(--green)':'var(--accent)',fontSize:16}}>{fmt1(pct)}%</span>
-                  <span>100%</span>
-                </div>
-              </div>
-              {/* Detalhes por BT/Concretagem */}
-              <div style={{padding:'20px 24px'}}>
-                <div style={{fontFamily:'var(--cond)',fontWeight:700,fontSize:13,letterSpacing:1,color:'var(--text3)',textTransform:'uppercase',marginBottom:12}}>Histórico de Lançamentos</div>
-                {lansP.length===0
-                  ?<div style={{color:'var(--text3)',fontSize:13,textAlign:'center',padding:'24px 0'}}>Nenhum lançamento para esta peça</div>
-                  :Object.values(byConc).map((g,gi)=>(
-                    <div key={gi} style={{marginBottom:16}}>
-                      <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',marginBottom:8,paddingBottom:6,borderBottom:'1px solid var(--border)'}}>
-                        CONCRETAGEM Nº{g.conc?.numero||'?'} — {g.conc?.data||''}{g.conc?.descricao?' | '+g.conc.descricao:''}
-                      </div>
-                      {g.bts.map((d,i)=>{
-                        const pctBT=d.pctBT;
-                        const acima=d.l.volume>p.volume;
-                        return(
-                          <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:'var(--surface2)',borderRadius:'var(--radius-sm)',marginBottom:6,border:`1px solid ${acima?'var(--red)':'var(--border)'}` }}>
-                            <div style={{fontFamily:'var(--mono)',fontSize:16,fontWeight:700,color:'var(--accent)',minWidth:50}}>BT-{d.bt?.numero||'?'}</div>
-                            <div style={{flex:1}}>
-                              <div style={{height:6,background:'var(--surface)',borderRadius:3,overflow:'hidden',marginBottom:4}}>
-                                <div style={{height:'100%',width:`${Math.min(100,pctBT)}%`,background:acima?'var(--red)':pctBT>=100?'var(--green)':'var(--accent)',borderRadius:3}}/>
-                              </div>
-                              <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',display:'flex',justifyContent:'space-between'}}>
-                                <span>{fmt4(d.l.volume)} m³</span>
-                                <span style={{color:acima?'var(--red)':pctBT>=100?'var(--green)':'var(--accent)',fontWeight:700}}>{fmt1(pctBT)}% desta peça</span>
-                              </div>
-                            </div>
-                            {acima&&<span style={{background:'var(--red)',color:'#fff',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4,whiteSpace:'nowrap'}}>+{fmt4(d.l.volume-p.volume)} m³</span>}
-                          </div>
-                        );
-                      })}
-                      <div style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)',textAlign:'right',marginTop:4}}>
-                        Total nesta conc: <span style={{color:'var(--accent)',fontWeight:700}}>{fmt4(g.bts.reduce((s,d)=>s+d.l.volume,0))} m³</span>
-                        {' · '}{fmt1(p.volume>0?g.bts.reduce((s,d)=>s+d.l.volume,0)/p.volume*100:0)}% da peça
-                      </div>
-                    </div>
-                  ))
-                }
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <ModalDetalhePeca peca={pecaSel} lancamentos={lancamentos} btsConfig={btsConfig} concretagens={concretagens} onClose={()=>setPecaSel(null)}/>
 
-      {/* Filtro por tipo */}
+            {/* Filtro por tipo */}
       <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
         {tipos.map(t=>(
           <button key={t} onClick={()=>setFiltroTipo(t)} style={{
@@ -2670,14 +2667,14 @@ export default function Home() {
             {/* KPIs */}
             <div className={s.kpiGrid}>
               {[
-                {label:'Volume Total do Projeto', value:fmt4(kpis.totalVol), unit:'m³', sub:filtroConc==='todas'?`${pecas.length} peças cadastradas`:`${pecasParaKPI.length} peças nesta concretagem`, icon:'📦', v:''},
-                {label:'Vol. Previsto (proj.×1.1)', value:fmt4(kpis.totalVol*1.1), unit:'m³', sub:'volume projeto + 10% perda', icon:'📊', v:'blue'},
-                {label:'Volume Real Concretado',  value:fmt4(kpis.concVol),  unit:'m³', sub:`${fmt1(kpis.pctConc)}% do projeto`,   icon:'✅', v:'green'},
-                {label:'Faltando (Real)',         value:fmt4(kpis.realFaltando), unit:'m³', sub:'proj. − real concretado', icon:'⚠️', v:'red'},
-                {label:'Faltando (Projeto)',      value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs executadas', icon:'📊', v:'blue'},
-                {label:'Índice de Perda',         value:fmt1(perdaInfo.indice),  unit:'%',  sub:`média por BT · ${fmt4(perdaInfo.perdaTotal)} m³`, icon:'📉', v:'orange'},
+                {label:'Volume Total do Projeto',    value:fmt4(kpis.totalVol),   unit:'m³', sub:filtroConc==='todas'?`${pecas.length} peças cadastradas`:`${pecasParaKPI.length} peças nesta concretagem`, icon:'📦', v:''},
+                {label:'Vol. Previsto (proj.×1.1)',  value:fmt4(kpis.totalVol*1.1), unit:'m³', sub:'volume projeto + 10% perda esperada', icon:'📊', v:'blue'},
+                {label:'Volume Real Concretado',     value:fmt4(kpis.concVol),    unit:'m³', sub:'soma dos volumes previstos das BTs lançadas', icon:'✅', v:'green'},
+                {label:'Volume Executado de Projeto',value:fmt4(kpis.execVol||0), unit:'m³', sub:`${fmt1(kpis.totalVol>0?(kpis.execVol||0)/kpis.totalVol*100:0)}% do projeto · saída real do caminhão`, icon:'🚛', v:'purple'},
+                {label:'Faltando (Projeto)',          value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs lançadas', icon:'⚠️', v:'red'},
+                {label:'Índice de Perda',            value:fmt1(perdaInfo.indice),  unit:'%',  sub:`(previsto − executado) / previsto · ${fmt4(perdaInfo.perdaTotal)} m³`, icon:'📉', v:'orange'},
               ].map((k,i)=>(
-                <div key={i} className={`${s.kpi} ${k.v==='green'?s.kpiGreen:k.v==='red'?s.kpiRed:k.v==='blue'?s.kpiBlue:k.v==='orange'?s.kpiOrange:''}`}>
+                <div key={i} className={`${s.kpi} ${k.v==='green'?s.kpiGreen:k.v==='red'?s.kpiRed:k.v==='blue'?s.kpiBlue:k.v==='orange'?s.kpiOrange:k.v==='purple'?s.kpiPurple:''}`}>
                   <div className={s.kpiIcon}>{k.icon}</div>
                   <div className={s.kpiBody}>
                     <div className={s.kpiLabel}>{k.label}</div>
