@@ -1,4 +1,4 @@
-// v1779973364
+// v1779974507
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -2758,6 +2758,34 @@ export default function Home() {
               ))}
             </div>
 
+            {/* EXPORTAR PEÇAS POR CONCRETAGEM */}
+            <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
+              <button onClick={()=>{
+                const rows=[['Nome','Tipo','Andar','Volume Projeto (m3)','Concretagem','% Nesta Conc','Vol. Nesta Conc. (m3)']];
+                const concsMap=Object.fromEntries(concretagens.map(c=>[c.id,`N${c.numero} - ${c.data}${c.descricao?' | '+c.descricao:''}`]));
+                const pcs=[...pecaConc].sort((a,b)=>{
+                  const pa=pecas.find(p=>p.id===a.pecaId)||{};
+                  const pb=pecas.find(p=>p.id===b.pecaId)||{};
+                  return ((pa.tipo||'')+(pa.andar||'')+(pa.nome||'')).localeCompare((pb.tipo||'')+(pb.andar||'')+(pb.nome||''));
+                });
+                pcs.forEach(pc=>{
+                  const p=pecas.find(x=>x.id===pc.pecaId);
+                  if(!p) return;
+                  const pct=parseFloat(pc.pctConcretagem)||0;
+                  const volConc=parseFloat((p.volume*pct/100).toFixed(4));
+                  rows.push([p.nome,p.tipo,p.andar,p.volume,concsMap[pc.concretagemId]||pc.concretagemId,pct,volConc]);
+                });
+                const csv=rows.map(r=>r.map(c=>'"'+String(c??'').replace(/"/g,'""')+'"').join(',')).join('
+');
+                const a=document.createElement('a');
+                a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
+                a.download='pecas-por-concretagem.csv';
+                a.click();
+              }} style={{background:'var(--surface2)',border:'1px solid var(--border)',color:'var(--text2)',fontSize:12,padding:'6px 14px',borderRadius:'var(--radius-sm)',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                📥 Exportar Peças por Concretagem
+              </button>
+            </div>
+
             {/* ALERTA: peças com excesso de lançamento */}
             {(()=>{
               const exc=kpis.pecasExcesso||[];
@@ -2817,32 +2845,7 @@ export default function Home() {
                       Concretagens
                       <span className={s.launchBarSmallBtnSub}>Gerenciar concretagens</span>
                     </button>
-                    <button className={s.launchBarSmallBtn} onClick={()=>{
-                      const rows=[['Nome','Tipo','Andar','Volume Projeto (m³)','Concretagem','% Nesta Conc.','Vol. Nesta Conc. (m³)']];
-                      const concsMap=Object.fromEntries(concretagens.map(c=>[c.id,`Nº${c.numero} — ${c.data}${c.descricao?' | '+c.descricao:''}`]));
-                      const pcs=[...pecaConc].sort((a,b)=>{
-                        const pa=pecas.find(p=>p.id===a.pecaId)||{};
-                        const pb=pecas.find(p=>p.id===b.pecaId)||{};
-                        return ((pa.tipo||'')+(pa.andar||'')+(pa.nome||'')).localeCompare((pb.tipo||'')+(pb.andar||'')+(pb.nome||''));
-                      });
-                      pcs.forEach(pc=>{
-                        const p=pecas.find(x=>x.id===pc.pecaId);
-                        if(!p) return;
-                        const pct=parseFloat(pc.pctConcretagem)||0;
-                        const volConc=parseFloat((p.volume*pct/100).toFixed(4));
-                        rows.push([p.nome,p.tipo,p.andar,p.volume,concsMap[pc.concretagemId]||pc.concretagemId,pct,volConc]);
-                      });
-                      const csv=rows.map(r=>r.map(c=>'"'+String(c??'').replace(/"/g,'""')+'"').join(',')).join('
-');
-                      const a=document.createElement('a');
-                      a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
-                      a.download='pecas-por-concretagem.csv';
-                      a.click();
-                    }}>
-                      <span className={s.launchBarSmallBtnIcon}>📥</span>
-                      Exportar
-                      <span className={s.launchBarSmallBtnSub}>Peças por concretagem</span>
-                    </button>
+
                   </div>
                   <button className={s.btnLaunch} onClick={()=>setModalBT(true)}>
                     ⊕ LANÇAR BT →
