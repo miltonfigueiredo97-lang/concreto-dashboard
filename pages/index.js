@@ -1,4 +1,4 @@
-// v1780005404
+// v1780005853
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1114,7 +1114,7 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
                       </div>
                       {sel&&<div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
                         <label style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)'}}>%</label>
-                        <input type="number" min="1" max="100" step="1" value={vinc.pctConcretagem} onChange={e=>setPct(p.id,e.target.value)} onBlur={e=>{const ja=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);const maxVal=Math.max(1,100-ja);const v=Math.min(parseFloat(e.target.value)||1,maxVal);setPct(p.id,v);}} onClick={e=>e.stopPropagation()} style={{width:64,background:'var(--surface2)',border:'1px solid var(--accent)',color:'var(--accent)',fontFamily:'var(--mono)',fontSize:13,padding:'6px 8px',outline:'none'}}/>
+                        <input type="number" min="0" max="100" step="1" value={vinc.pctConcretagem} onChange={e=>setPct(p.id,e.target.value)} onBlur={e=>{const ja=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);const maxVal=Math.max(1,100-ja);const raw=parseFloat(e.target.value);const v=isNaN(raw)?maxVal:Math.max(1,Math.min(raw,maxVal));setPct(p.id,v);}} onClick={e=>e.stopPropagation()} style={{width:64,background:'var(--surface2)',border:'1px solid var(--accent)',color:'var(--accent)',fontFamily:'var(--mono)',fontSize:13,padding:'6px 8px',outline:'none'}}/>
                         <span style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>{fmt4((vinc.pctConcretagem/100)*p.volume)} m³</span>
                       </div>}
                     </div>
