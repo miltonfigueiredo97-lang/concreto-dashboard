@@ -1,4 +1,4 @@
-// v1779940798
+// v1779941435
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -3056,9 +3056,32 @@ export default function Home() {
 
             {[
               {
+                versao: 'v2.0',
+                data: '2026-05-28',
+                status: 'atual',
+                itens: [
+                  '🔧 CORREÇÃO FUNDAMENTAL: % lançado na BT agora é relativo ao volume da peça NESTA concretagem (ex: P.11 a 30% → lançar 100% = 0.54 m³, não 1.79 m³)',
+                  'KPI Volume Real Concretado = soma dos volumePrevisto das BTs lançadas',
+                  'KPI Volume Executado de Projeto 🚛 = saída real do caminhão, limitado ao volume do projeto por peça',
+                  'Índice de Perda desconta perda de cocho/linha — mostra perda real da obra',
+                  'Perda do Cocho exibida separadamente no card de BT: "cocho: 1.50 m³ · real: 18.7% perda"',
+                  'Campo "Volume Cocho + Linha [m³]" agora salva e carrega corretamente na edição da BT',
+                  'Modal de detalhe da peça ao clicar no Progresso por Tipo: volume, % concretado, histórico por BT e concretagem',
+                  'Clicar em BT no Status das BTs abre direto o modal de edição daquela BT',
+                  'Busca por nome e checkbox Esconder 100% no select de peças do Lançar BT',
+                  '% já lançada exibida em cada opção do select (excluindo a BT atual)',
+                  'Arredondamento automático de % na edição de BT (99.99 → 100, 100.02 → 100)',
+                  'Concretagem step 2: cada peça mostra % já alocado em outras concretagens e bloqueia se 100% alocado',
+                  'Input de % na concretagem limitado ao disponível automaticamente',
+                  'Alerta no dashboard de peças lançadas além de 100% do projeto',
+                  'Tolerância de 0.005 m³ — peças com diferença mínima exibem 100% corretamente',
+                  'Correção: Esconder 100% no modal de concretagem não causa mais crash',
+                ],
+              },
+              {
                 versao: 'v1.0',
                 data: '2026-05-20',
-                status: 'atual',
+                status: 'anterior',
                 itens: [
                   'Dashboard operacional com KPIs em tempo real (Volume Projeto, Concretado, Faltando Real, Faltando Projeto, Índice de Perda)',
                   'Filtro por Andar e Concretagem com dropdown — andar filtra concretagens disponíveis',
