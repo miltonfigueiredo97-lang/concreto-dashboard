@@ -1,4 +1,4 @@
-// v1779940327
+// v1779940798
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -346,7 +346,7 @@ function GraficoBTs({ btsConfig, lancamentos, concretagens, onAbrirBT }) {
                             ? `${fmt1((Math.abs(perdaCam)/b.volumePrevisto)*100)}% sobra`
                             : '0% perda'}
                         </span>}
-                        {perdaCocho>0&&<span style={{color:'var(--text3)',fontSize:10,marginTop:2}}>
+                        {perdaCocho>0&&<span style={{color:'var(--accent)',fontSize:11,marginTop:3,display:'block'}}>
                           {`cocho: ${fmt4(perdaCocho)} m³ · real: ${fmt1(perdaReal>0?(perdaReal/b.volumePrevisto)*100:0)}% perda`}
                         </span>}
                       </div>
@@ -1237,6 +1237,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
     setLinhas(ls.length?ls:[{pecaId:'',pct:''}]);
     setSobra(String(lancamentosbt[0]?.sobraCaminhao||''));
     setPerda(String(lancamentosbt[0]?.perdaObra||''));
+    setPerdaCocho(String(lancamentosbt[0]?.perdaCocho||''));
     setModoLancamento('editar');
     setStep(2);
   }
@@ -2744,7 +2745,7 @@ export default function Home() {
                 {label:'Volume Real Concretado',     value:fmt4(kpis.concVol),    unit:'m³', sub:'soma dos volumes previstos das BTs lançadas', icon:'✅', v:'green'},
                 {label:'Volume Executado de Projeto',value:fmt4(kpis.execVol||0), unit:'m³', sub:`${fmt1(kpis.totalVol>0?(kpis.execVol||0)/kpis.totalVol*100:0)}% do projeto · saída real do caminhão`, icon:'🚛', v:'purple'},
                 {label:'Faltando (Projeto)',          value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs lançadas', icon:'⚠️', v:'red'},
-                {label:'Índice de Perda',            value:fmt1(perdaInfo.indice),  unit:'%',  sub:`(previsto − executado) / previsto · ${fmt4(perdaInfo.perdaTotal)} m³`, icon:'📉', v:'orange'},
+                {label:'Índice de Perda',            value:fmt1(perdaInfo.indice),  unit:'%',  sub:`(prev. − exec.) / prev. s/ cocho · cocho: ${fmt4(perdaInfo.perdaCocho||0)} m³`, icon:'📉', v:'orange'},
               ].map((k,i)=>(
                 <div key={i} className={`${s.kpi} ${k.v==='green'?s.kpiGreen:k.v==='red'?s.kpiRed:k.v==='blue'?s.kpiBlue:k.v==='orange'?s.kpiOrange:k.v==='purple'?s.kpiPurple:''}`}>
                   <div className={s.kpiIcon}>{k.icon}</div>
