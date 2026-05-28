@@ -1,4 +1,4 @@
-// v1779915679
+// v1779916062
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1201,8 +1201,12 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
     const ls = lancamentosbt.map(l => {
       const peca = pecas.find(p=>p.id===l.pecaId);
       if(!peca||peca.volume<=0) return { pecaId:l.pecaId, pct:'' };
-      const pctRaw = l.volume/peca.volume*100;
-      // Arredondar para inteiro se diferença < 0.1 (ex: 99.99 → 100, 50.001 → 50)
+      // Usar volConc = volume da peça NESTA concretagem
+      const pc = pecaConc.find(x=>x.pecaId===l.pecaId&&x.concretagemId===concId);
+      const pctConcPeca = pc ? parseFloat(pc.pctConcretagem)/100 : 1;
+      const volConc = peca.volume * pctConcPeca;
+      const pctRaw = volConc>0 ? l.volume/volConc*100 : 0;
+      // Arredondar para inteiro se diferença < 0.1
       const pctInt = Math.round(pctRaw);
       const pct = Math.abs(pctRaw - pctInt) < 0.1 ? String(pctInt) : pctRaw.toFixed(2);
       return { pecaId:l.pecaId, pct };
@@ -1220,15 +1224,25 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
     return pecas.filter(p=>ids.includes(p.id));
   },[concId,pecaConc,pecas]);
 
-  const volLinha=l=>{const p=pecas.find(x=>x.id===l.pecaId);const pct=parseFloat(l.pct);return p&&!isNaN(pct)?(pct/100)*p.volume:0;};
+  const volLinha=l=>{
+    const p=pecas.find(x=>x.id===l.pecaId);
+    const pct=parseFloat(l.pct);
+    if(!p||isNaN(pct)) return 0;
+    const pc=pecaConc.find(x=>x.pecaId===p.id&&x.concretagemId===concId);
+    const pctConc=pc?parseFloat(pc.pctConcretagem)/100:1;
+    return (pct/100)*(p.volume*pctConc);
+  };
   // Calcular excesso por peça no lançamento atual
   const excessoLinha=l=>{
     if(!l.pecaId||!l.pct) return 0;
     const p=pecas.find(x=>x.id===l.pecaId); if(!p) return 0;
-    const lansOutras=lancamentos.filter(x=>x.pecaId===l.pecaId&&x.btConfigId!==btId);
+    const pc=pecaConc.find(x=>x.pecaId===p.id&&x.concretagemId===concId);
+    const pctConc=pc?parseFloat(pc.pctConcretagem)/100:1;
+    const volConc=p.volume*pctConc;
+    const lansOutras=lancamentos.filter(x=>x.pecaId===l.pecaId&&x.btConfigId!==btId&&x.concretagemId===concId);
     const jaLan=lansOutras.reduce((s,x)=>s+x.volume,0);
-    const volEsta=(parseFloat(l.pct)/100)*p.volume;
-    return Math.max(0,jaLan+volEsta-p.volume);
+    const volEsta=(parseFloat(l.pct)/100)*volConc;
+    return Math.max(0,jaLan+volEsta-volConc);
   };
   const temExcesso=linhas.some(l=>excessoLinha(l)>0.001);
   const totalUsado=linhas.reduce((s,l)=>s+volLinha(l),0);
@@ -1248,7 +1262,7 @@ function ModalLancarBT({ open, onClose, pecas, concretagens, pecaConc, btsConfig
     try{
       await apiLancarBT({btConfigId:btId,concretagemId:concId,linhas:linhasVal,
         sobraCaminhao:parseFloat(sobra)||sobEstimada,perdaObra:parseFloat(perda)||0,perdaCocho:parseFloat(perdaCocho)||0,
-        hora,pecas,notaFiscal:nfEdit,codigoBT:codEdit});
+        hora,pecas,pecaConc,notaFiscal:nfEdit,codigoBT:codEdit});
       onSalvo(modoLancamento==='editar'?`✓ BT-${btSel?.numero} atualizada!`:`✓ BT-${btSel?.numero} lançada!`);
       onClose();
     }catch(e){setErro('Erro: '+e.message);}finally{setSalvando(false);}
