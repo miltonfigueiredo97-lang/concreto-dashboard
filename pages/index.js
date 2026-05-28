@@ -1,4 +1,4 @@
-// v1779939341
+// v1779940327
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -1093,10 +1093,28 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
                   :pecasVisiveis.map(p=>{const sel=!!vinculos.find(v=>v.pecaId===p.id);const vinc=vinculos.find(v=>v.pecaId===p.id);return(
                     <div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',borderBottom:'1px solid var(--border)',background:sel?'rgba(232,162,37,0.06)':'transparent'}}>
                       <div onClick={()=>togglePeca(p.id)} style={{width:22,height:22,border:`2px solid ${sel?'var(--accent)':'var(--border2)'}`,background:sel?'var(--accent)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,fontSize:14,color:'#0e0f11',fontWeight:700,transition:'all 0.15s'}}>{sel?'✓':''}</div>
-                      <div style={{flex:1,cursor:'pointer'}} onClick={()=>togglePeca(p.id)}><div style={{fontWeight:600,fontSize:15}}>{p.nome}</div><div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:2}}>{p.tipo} · {p.andar} · {fmt4(p.volume)} m³</div></div>
+                      <div style={{flex:1,cursor:'pointer'}} onClick={()=>{
+                          // Calcular % já alocado em OUTRAS concretagens
+                          const jaAlocado=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);
+                          if(jaAlocado>=100) return; // já totalmente alocado
+                          togglePeca(p.id);
+                        }}>
+                        <div style={{fontWeight:600,fontSize:15}}>{p.nome}</div>
+                        <div style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)',marginTop:2}}>{p.tipo} · {p.andar} · {fmt4(p.volume)} m³</div>
+                        {(()=>{
+                          const jaAlocado=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);
+                          const concsComPeca=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId);
+                          if(jaAlocado<=0) return null;
+                          const nomesConc=concsComPeca.map(pc=>{const c=concretagens.find(x=>x.id===pc.concretagemId);return `Conc.Nº${c?.numero||'?'} (${fmt1(pc.pctConcretagem)}%)`;}).join(', ');
+                          const disponivel=Math.max(0,100-jaAlocado);
+                          return <div style={{fontSize:11,color:disponivel<=0?'var(--red)':'var(--accent)',marginTop:3}}>
+                            {disponivel<=0?'⛔ 100% já alocado':`${fmt1(jaAlocado)}% em ${nomesConc} · disponível: ${fmt1(disponivel)}%`}
+                          </div>;
+                        })()}
+                      </div>
                       {sel&&<div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
                         <label style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)'}}>%</label>
-                        <input type="number" min="1" max="100" step="1" value={vinc.pctConcretagem} onChange={e=>setPct(p.id,e.target.value)} onClick={e=>e.stopPropagation()} style={{width:64,background:'var(--surface2)',border:'1px solid var(--accent)',color:'var(--accent)',fontFamily:'var(--mono)',fontSize:13,padding:'6px 8px',outline:'none'}}/>
+                        <input type="number" min="1" max={(()=>{const ja=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);return Math.max(1,100-ja);})()}  step="1" value={vinc.pctConcretagem} onChange={e=>{const ja=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);const maxVal=Math.max(1,100-ja);const v=Math.min(parseFloat(e.target.value)||1,maxVal);setPct(p.id,v);}} onClick={e=>e.stopPropagation()} style={{width:64,background:'var(--surface2)',border:'1px solid var(--accent)',color:'var(--accent)',fontFamily:'var(--mono)',fontSize:13,padding:'6px 8px',outline:'none'}}/>
                         <span style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>{fmt4((vinc.pctConcretagem/100)*p.volume)} m³</span>
                       </div>}
                     </div>
