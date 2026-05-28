@@ -1,4 +1,4 @@
-// v1779989150
+// v1780005404
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -60,7 +60,7 @@ function Modal({ open, onClose, title, children, wide, extraWide }) {
   if(!open) return null;
   return(
     <div className={s.modalOverlay} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className={`${s.modal} ${wide?s.modalWide:''} ${extraWide?s.modalExtraWide:''}`}>
+      <div className={`${s.modal} ${wide?s.modalWide:''} ${extraWide?s.modalExtraWide:''}`} onClick={e=>e.stopPropagation()}>
         <div className={s.modalTitle}>{title}</div>
         {children}
       </div>
@@ -1040,7 +1040,7 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
                 {[...concretagens].sort((a,b)=>a.numero-b.numero).map(c=><option key={c.id} value={c.id}>Nº{c.numero} — {c.data}{c.descricao?` | ${c.descricao}`:''}</option>)}
               </select>
               <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:8,marginTop:10}}>
-                <button className={s.btnPrimary} onClick={iniciarEditar}>Editar →</button>
+                <button className={s.btnPrimary} onClick={e=>{e.stopPropagation();iniciarEditar();}}>Editar →</button>
                 <button className={s.btnDanger} onClick={excluirConc} title="Excluir concretagem">🗑</button>
               </div>
             </div>
