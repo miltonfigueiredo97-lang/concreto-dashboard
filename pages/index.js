@@ -1,4 +1,4 @@
-// v1779936521
+// v1779937655
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -2615,6 +2615,16 @@ export default function Home() {
   const btsParaKPI = filtroConc==='todas' ? btsConfig : btsConfig.filter(b=>b.concretagemId===filtroConc);
   const lansParaKPI = filtroConc==='todas' ? lancamentos : lancamentos.filter(l=>l.concretagemId===filtroConc);
   const kpis    = calcKPIs(pecasParaKPI,lansParaKPI,btsParaKPI,filtroAndar);
+  // DEBUG TEMPORÁRIO
+  if(typeof window!=='undefined') {
+    const dbg = pecasParaKPI.map(p=>{
+      const lan = lansParaKPI.filter(l=>l.pecaId===p.id).reduce((s,l)=>s+l.volume,0);
+      const capped = Math.min(p.volume, lan);
+      return {nome:p.nome, vol:p.volume, lan:+lan.toFixed(4), capped:+capped.toFixed(4), diff:+(lan-capped).toFixed(4)};
+    }).filter(x=>x.diff>0.001);
+    if(dbg.length) console.log('PECAS COM EXCESSO:', dbg, 'TOTAL EXCESSO:', dbg.reduce((s,x)=>s+x.diff,0).toFixed(4));
+    else console.log('execVol ok, total:', kpis.execVol?.toFixed(4));
+  }
   const perdaInfo = kpis.perdaInfo;
   // Usar lancamentos filtrados para progresso por tipo
   const lancamentosOp = filtroConc==='todas' ? lancamentos : lancamentos.filter(l=>l.concretagemId===filtroConc);
