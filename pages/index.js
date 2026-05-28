@@ -1,4 +1,4 @@
-// v1779939172
+// v1779939341
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -318,7 +318,7 @@ function GraficoBTs({ btsConfig, lancamentos, concretagens, onAbrirBT }) {
                 const usado=lans.reduce((s,l)=>s+l.volume,0);
                 const acima=usado>b.volumePrevisto;
                 const perdaCam=b.volumePrevisto-usado; // perda total = previsto - executado
-                const perdaCocho=lancada?(lans[0].perdaCocho||0):0; // perda por cocho/linha
+                const perdaCocho=lancada?(parseFloat(lans[0].perdaCocho)||0):0; // perda por cocho/linha
                 const perdaReal=perdaCam-perdaCocho; // perda real da obra (sem cocho)
                 return(
                   <div key={b.id}
@@ -943,7 +943,7 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
 // ════════════════════════════════════════════════
 // MODAL: CONCRETAGEM
 // ════════════════════════════════════════════════
-function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsConfig, onSalvo, lancamentos }) {
+function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsConfig, onSalvo, lancamentos=[] }) {
   const [subModo,setSubModo]=useState('menu');
   const [step,setStep]=useState(1);
   const [concSel,setConcSel]=useState('');
