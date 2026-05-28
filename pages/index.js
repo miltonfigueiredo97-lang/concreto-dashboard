@@ -1,4 +1,4 @@
-// v1779931352
+// v1779936521
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -317,7 +317,9 @@ function GraficoBTs({ btsConfig, lancamentos, concretagens, onAbrirBT }) {
                 const lancada=lans.length>0;
                 const usado=lans.reduce((s,l)=>s+l.volume,0);
                 const acima=usado>b.volumePrevisto;
-                const perdaCam=b.volumePrevisto-usado;
+                const perdaCam=b.volumePrevisto-usado; // perda total = previsto - executado
+                const perdaCocho=lancada?(lans[0].perdaCocho||0):0; // perda por cocho/linha
+                const perdaReal=perdaCam-perdaCocho; // perda real da obra (sem cocho)
                 return(
                   <div key={b.id}
                     onClick={()=>onAbrirBT&&onAbrirBT(c.id, b.id)}
@@ -343,6 +345,9 @@ function GraficoBTs({ btsConfig, lancamentos, concretagens, onAbrirBT }) {
                             : perdaCam<0
                             ? `${fmt1((Math.abs(perdaCam)/b.volumePrevisto)*100)}% sobra`
                             : '0% perda'}
+                        </span>}
+                        {perdaCocho>0&&<span style={{color:'var(--text3)',fontSize:10,marginTop:2}}>
+                          {`cocho: ${fmt4(perdaCocho)} m³ · real: ${fmt1(perdaReal>0?(perdaReal/b.volumePrevisto)*100:0)}% perda`}
                         </span>}
                       </div>
                     )}
@@ -2709,7 +2714,7 @@ export default function Home() {
                 {label:'Volume Total do Projeto',    value:fmt4(kpis.totalVol),   unit:'m³', sub:filtroConc==='todas'?`${pecas.length} peças cadastradas`:`${pecasParaKPI.length} peças nesta concretagem`, icon:'📦', v:''},
                 {label:'Vol. Previsto (proj.×1.1)',  value:fmt4(kpis.totalVol*1.1), unit:'m³', sub:'volume projeto + 10% perda esperada', icon:'📊', v:'blue'},
                 {label:'Volume Real Concretado',     value:fmt4(kpis.concVol),    unit:'m³', sub:'soma dos volumes previstos das BTs lançadas', icon:'✅', v:'green'},
-                {label:'Volume Executado de Projeto',value:fmt4(kpis.execVol||0), unit:'m³', sub:`${fmt1(kpis.totalVol>0?(kpis.execVol||0)/kpis.totalVol*100:0)}% do projeto · saída real do caminhão${(kpis.execVol||0)>kpis.totalVol*1.01?' ⚠ reedite BTs antigas':''}`, icon:'🚛', v:(kpis.execVol||0)>kpis.totalVol*1.01?'red':'purple'},
+                {label:'Volume Executado de Projeto',value:fmt4(kpis.execVol||0), unit:'m³', sub:`${fmt1(kpis.totalVol>0?(kpis.execVol||0)/kpis.totalVol*100:0)}% do projeto · saída real do caminhão`, icon:'🚛', v:'purple'},
                 {label:'Faltando (Projeto)',          value:fmt4(kpis.projFaltando), unit:'m³', sub:'proj. − BTs lançadas', icon:'⚠️', v:'red'},
                 {label:'Índice de Perda',            value:fmt1(perdaInfo.indice),  unit:'%',  sub:`(previsto − executado) / previsto · ${fmt4(perdaInfo.perdaTotal)} m³`, icon:'📉', v:'orange'},
               ].map((k,i)=>(
