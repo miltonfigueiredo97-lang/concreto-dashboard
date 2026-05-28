@@ -1,4 +1,4 @@
-// v1779974507
+// v1779989150
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -991,7 +991,7 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
   }
 
   function togglePeca(pecaId){setVinculos(prev=>{if(prev.find(v=>v.pecaId===pecaId))return prev.filter(v=>v.pecaId!==pecaId);return[...prev,{pecaId,pctConcretagem:100}];});}
-  function setPct(pecaId,val){setVinculos(prev=>prev.map(v=>v.pecaId===pecaId?{...v,pctConcretagem:parseFloat(val)||100}:v));}
+  function setPct(pecaId,val){const n=parseFloat(val);setVinculos(prev=>prev.map(v=>v.pecaId===pecaId?{...v,pctConcretagem:isNaN(n)?'':Math.min(n,100)}:v));}
   function toggleAndar(andar){const ids=pecas.filter(p=>p.andar===andar).map(p=>p.id);const todos=ids.every(id=>vinculos.find(v=>v.pecaId===id));if(todos)setVinculos(prev=>prev.filter(v=>!ids.includes(v.pecaId)));else{const novos=ids.filter(id=>!vinculos.find(v=>v.pecaId===id)).map(id=>({pecaId:id,pctConcretagem:100}));setVinculos(prev=>[...prev,...novos]);}}
   function addBT(){setBts(prev=>[...prev,{id:'',numero:prev.length+1,volumePrevisto:8,notaFiscal:'',codigoBT:''}]);}
   function remBT(i){setBts(prev=>prev.filter((_,idx)=>idx!==i));}
@@ -1114,7 +1114,7 @@ function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsCon
                       </div>
                       {sel&&<div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
                         <label style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--text3)'}}>%</label>
-                        <input type="number" min="1" max={(()=>{const ja=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);return Math.max(1,100-ja);})()}  step="1" value={vinc.pctConcretagem} onChange={e=>{const ja=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);const maxVal=Math.max(1,100-ja);const v=Math.min(parseFloat(e.target.value)||1,maxVal);setPct(p.id,v);}} onClick={e=>e.stopPropagation()} style={{width:64,background:'var(--surface2)',border:'1px solid var(--accent)',color:'var(--accent)',fontFamily:'var(--mono)',fontSize:13,padding:'6px 8px',outline:'none'}}/>
+                        <input type="number" min="1" max="100" step="1" value={vinc.pctConcretagem} onChange={e=>setPct(p.id,e.target.value)} onBlur={e=>{const ja=pecaConc.filter(pc=>pc.pecaId===p.id&&pc.concretagemId!==concId).reduce((s,pc)=>s+parseFloat(pc.pctConcretagem||0),0);const maxVal=Math.max(1,100-ja);const v=Math.min(parseFloat(e.target.value)||1,maxVal);setPct(p.id,v);}} onClick={e=>e.stopPropagation()} style={{width:64,background:'var(--surface2)',border:'1px solid var(--accent)',color:'var(--accent)',fontFamily:'var(--mono)',fontSize:13,padding:'6px 8px',outline:'none'}}/>
                         <span style={{fontFamily:'var(--mono)',fontSize:12,color:'var(--text3)'}}>{fmt4((vinc.pctConcretagem/100)*p.volume)} m³</span>
                       </div>}
                     </div>
