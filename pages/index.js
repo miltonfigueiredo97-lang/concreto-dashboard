@@ -1,4 +1,4 @@
-// v1779938178
+// v1779939172
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -943,7 +943,7 @@ function ModalPecas({ open, onClose, pecas, onSalvo }) {
 // ════════════════════════════════════════════════
 // MODAL: CONCRETAGEM
 // ════════════════════════════════════════════════
-function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsConfig, onSalvo }) {
+function ModalConcretagem({ open, onClose, pecas, concretagens, pecaConc, btsConfig, onSalvo, lancamentos }) {
   const [subModo,setSubModo]=useState('menu');
   const [step,setStep]=useState(1);
   const [concSel,setConcSel]=useState('');
@@ -2615,6 +2615,15 @@ export default function Home() {
   const btsParaKPI = filtroConc==='todas' ? btsConfig : btsConfig.filter(b=>b.concretagemId===filtroConc);
   const lansParaKPI = filtroConc==='todas' ? lancamentos : lancamentos.filter(l=>l.concretagemId===filtroConc);
   const kpis    = calcKPIs(pecasParaKPI,lansParaKPI,btsParaKPI,filtroAndar,pecas);
+  // DEBUG: peças com lançamentos acima do volume original
+  if(typeof window!=='undefined' && filtroConc==='todas'){
+    const excesso=pecas.map(p=>{
+      const lan=lancamentos.filter(l=>l.pecaId===p.id).reduce((s,l)=>s+l.volume,0);
+      return {nome:p.nome, andar:p.andar, volProj:+p.volume.toFixed(4), lan:+lan.toFixed(4), diff:+(lan-p.volume).toFixed(4)};
+    }).filter(x=>x.diff>0.005);
+    if(excesso.length) console.warn('PECAS COM EXCESSO (filtro=todas):', JSON.stringify(excesso));
+    else console.log('Nenhum excesso encontrado, execVol:', kpis.execVol?.toFixed(4));
+  }
 
   const perdaInfo = kpis.perdaInfo;
   // Usar lancamentos filtrados para progresso por tipo
@@ -3091,7 +3100,7 @@ export default function Home() {
           }catch(e){showToast('Erro: '+e.message,'err');}
         }}/>
       <ModalPecas       open={modalPecas}  onClose={()=>setModalPecas(false)}  pecas={pecas} onSalvo={msg=>showToast(msg,'ok')}/>
-      <ModalConcretagem open={modalConc}   onClose={()=>setModalConc(false)}   pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} onSalvo={msg=>showToast(msg,'ok')}/>
+      <ModalConcretagem open={modalConc}   onClose={()=>setModalConc(false)}   pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} onSalvo={msg=>showToast(msg,'ok')} lancamentos={lancamentos}/>
       <ModalLancarBT    open={modalBT}     onClose={()=>{setModalBT(false);setBtPreSel({concId:'',btId:''});}}     pecas={pecas} concretagens={concretagens} pecaConc={pecaConc} btsConfig={btsConfig} lancamentos={lancamentos} onSalvo={msg=>showToast(msg,'ok')} btPreSel={btPreSel}/>
       <ModalConfig      open={modalConfig} onClose={()=>setModalConfig(false)} pecas={pecas} config={config} onSalvar={salvarConfig}/>
       <Toast msg={toast.msg} tipo={toast.tipo} onDone={()=>setToast({msg:'',tipo:'ok'})}/>
