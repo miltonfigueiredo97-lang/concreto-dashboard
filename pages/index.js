@@ -1,4 +1,4 @@
-// v1779937655
+// v1779938018
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import s from '../styles/Home.module.css';
 import {
@@ -2617,13 +2617,15 @@ export default function Home() {
   const kpis    = calcKPIs(pecasParaKPI,lansParaKPI,btsParaKPI,filtroAndar);
   // DEBUG TEMPORÁRIO
   if(typeof window!=='undefined') {
-    const dbg = pecasParaKPI.map(p=>{
+    // Mostrar todas as peças com lançamentos, comparando volume projeto vs lançado
+    const dbg2 = pecasParaKPI.map(p=>{
       const lan = lansParaKPI.filter(l=>l.pecaId===p.id).reduce((s,l)=>s+l.volume,0);
-      const capped = Math.min(p.volume, lan);
-      return {nome:p.nome, vol:p.volume, lan:+lan.toFixed(4), capped:+capped.toFixed(4), diff:+(lan-capped).toFixed(4)};
-    }).filter(x=>x.diff>0.001);
-    if(dbg.length) console.log('PECAS COM EXCESSO:', dbg, 'TOTAL EXCESSO:', dbg.reduce((s,x)=>s+x.diff,0).toFixed(4));
-    else console.log('execVol ok, total:', kpis.execVol?.toFixed(4));
+      return {nome:p.nome, volProj:+p.volume.toFixed(4), lan:+lan.toFixed(4)};
+    }).filter(x=>x.lan>0);
+    const totalProj = dbg2.reduce((s,x)=>s+x.volProj,0);
+    const totalLan = dbg2.reduce((s,x)=>s+Math.min(x.volProj,x.lan),0);
+    console.log('totalProj:', totalProj.toFixed(4), 'totalLan(capped):', totalLan.toFixed(4));
+    console.log('pecas com lancamentos:', JSON.stringify(dbg2));
   }
   const perdaInfo = kpis.perdaInfo;
   // Usar lancamentos filtrados para progresso por tipo
